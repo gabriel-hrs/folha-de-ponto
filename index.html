@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Folha de ponto Cafehyna</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+    <style>
+      .without_ampm::-webkit-datetime-edit-ampm-field {
+        display: none;
+      }
+      input[type=time]::-webkit-clear-button {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        -o-appearance: none;
+        -ms-appearance:none;
+        appearance: none;
+        margin: -10px; 
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="container">
+        <h1 class="d-flex justify-content-center align-items-center my-3 gap-3">Folha de ponto <img src="logo.png"></h1>
+        
+        <form>
+          <div class="input-group date mb-3 d-flex flex-row gap-3 align-items-center">
+            <label for="dia" class="form-label">Dia</label>
+            <input type="text" id="dia" name="dia" value="" class="form-control"/>
+            <div class="input-group-addon">
+              <span class="glyphicon glyphicon-th"></span>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="entrada" class="form-label">Horário entrada</label>
+            <input id="entrada" type="time" class="without_ampm form-control" />
+          </div>
+
+          <div class="mb-3">
+            <label for="saida" class="form-label">Horário saida</label>
+            <input id="saida" type="time" class="without_ampm form-control" />
+          </div>
+
+          <button id="btn-resultado" type="button" class="btn btn-primary d-flex w-100 justify-content-center mb-3">Ver resultado do dia</button>
+
+          <div class="mb-3 d-flex flex-row">
+            <label for="valor_horario" class="form-label col-2">Horas trabalhadas do dia:</label>
+            <input id="valor_horario" type="text" class="form-control" readonly />
+          </div>
+
+          <div class="mb-3 d-flex flex-row align-items-center">
+            <label for="resultado_horario" class="form-label col-2">Resultados de horas:</label>
+            <input id="resultado_horario" type="text" class="form-control" readonly />
+          </div>
+
+          <button id="btn-salvar" type="button" class="btn btn-primary d-flex w-100 justify-content-center mb-3">Salvar</button>
+        </form>
+      </div>
+    </main>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+    
+    <script src='http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.6.1/js/bootstrap-datepicker.min.js'></script>
+    <script>
+      $('.input-group.date').datepicker({
+        format: "dd/mm/yyyy",
+        weekStart: 1
+      });
+
+      $('#btn-resultado').on('click', function() {
+        let entrada = $('#entrada').val();
+        let saida = $('#saida').val();
+        let horas = 0;
+
+        if (entrada && saida) {
+          let entrada_hora = parseInt(entrada.split(':')[0]);
+          let entrada_minuto = parseInt(entrada.split(':')[1]);
+
+          let saida_hora = parseInt(saida.split(':')[0]);
+          let saida_minuto = parseInt(saida.split(':')[1]);
+
+          let horas = saida_hora - entrada_hora;
+          let minutos = saida_minuto - entrada_minuto;
+
+          function zeroEsquerda(numero) {
+            return numero < 10 ? '0' + numero : numero;
+          }
+          horas = zeroEsquerda(horas);
+          minutos = zeroEsquerda(minutos);
+
+          if (minutos < 0) {
+            horas -= 1;
+            minutos = 60 + minutos;
+          }
+
+          $('#valor_horario').val(horas + ':' + minutos);
+
+          let dia = document.getElementById('dia').value;
+          if (dia == '') {
+            alert('Informe o dia');
+            return;
+          }
+          
+          function getDayOfWeek(date) {
+            date = date.split('/').reverse().join('-');
+            const dayOfWeek = new Date(date).getDay();    
+            return isNaN(dayOfWeek) ? null : 
+              ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'][dayOfWeek];
+          }
+
+          let diaDaSemana = getDayOfWeek(dia);
+          if ( diaDaSemana == 'Segunda' || diaDaSemana == 'Terça' || diaDaSemana == 'Quarta' || diaDaSemana == 'Quinta') {
+            if (horas < 9 && minutos < 39) {
+              let resultado_horas =  horas - 9;
+              let resultado_minutos = minutos - 39;
+              $('#resultado_horario').val('Horas trabalhadas insuficientes: ' + resultado_horas + ':' + resultado_minutos).addClass('text-danger');
+              return;
+            } else {
+              let resultado_horas =  9 - horas;
+              let resultado_minutos = 39 - minutos;
+              $('#resultado_horario').val('Horas trabalhadas suficientes: ' +  + resultado_horas + ':' + resultado_minutos).addClass('text-success');
+              return;
+            }
+          } else if (diaDaSemana == 'Sexta') {
+            if (horas < 8) {
+              $('#resultado_horario').val('Horas trabalhadas insuficientes: ' + horas + ':' + minutos).addClass('text-danger');
+              return;
+            } else {
+              $('#resultado_horario').val('Horas trabalhadas suficientes: ' + horas + ':' + minutos).addClass('text-success');
+              return;
+            }
+          } else {
+            alert('Dia inválido');
+            return;
+          }
+        }
+      });
+
+      $('#btn-salvar').on('click', function() {
+        let dia = document.getElementById('dia').value;
+        let entrada = $('#entrada').val();
+        let saida = $('#saida').val();
+        let horas = $('#valor_horario').val();
+        let resultado = $('#resultado_horario').val();
+
+        if (dia == '' || entrada == '' || saida == '' || horas == '' || resultado == '') {
+          alert('Preencha todos os campos');
+          return;
+        }
+
+        let dados = {
+          dia: dia,
+          entrada: entrada,
+          saida: saida,
+          horas: horas,
+          resultado: resultado
+        };
+
+        $.ajax({
+          url: 'salvar.php',
+          type: 'POST',
+          data: dados,
+          success: function(response) {
+            console.log(response);
+            alert(response);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
