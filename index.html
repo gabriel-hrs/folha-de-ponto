@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <link rel="manifest" href="manifest.json">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Folha de ponto Cafehyna</title>
@@ -18,12 +19,25 @@
         appearance: none;
         margin: -10px; 
       }
+      .datepicker {   
+        top: 7.5rem !important;
+        left: calc(50vw - 7rem) !important;
+        padding: 2rem;
+      }
+      .datepicker-days .date.active {
+        background-color: gainsboro;
+      }
+      .datepicker-days .date.hover {
+        background-color: gray;
+      }
     </style>
   </head>
   <body>
     <main>
       <div class="container">
         <h1 class="d-flex justify-content-center align-items-center my-3 gap-3">Folha de ponto <img src="logo.png"></h1>
+
+        <h2 class="d-flex justify-content-center align-items-center my-3 gap-3">Atualizar folha</h2>
         
         <form>
           <div class="input-group date mb-3 d-flex flex-row gap-3 align-items-center">
@@ -56,10 +70,15 @@
             <input id="resultado_horario" type="text" class="form-control" readonly />
           </div>
 
-          <button id="btn-salvar" type="button" class="btn btn-primary d-flex w-100 justify-content-center mb-3">Salvar</button>
+          <div class="d-flex justify-content-center align-items-center gap-3">
+            <button id="btn-salvar" type="button" class="btn btn-primary d-flex w-100 justify-content-center mb-3">Salvar dados no Ponto</button>
+            <a href="ponto-mensal.html" class="btn btn-secondary d-flex w-100 justify-content-center mb-3">Ver Ponto</a>
+          </div>
         </form>
       </div>
-    </main>
+
+      <small class="mb-3 d-flex justify-content-center w-100">Feito por Gabriel Henrique</small>
+    </main> 
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
@@ -69,7 +88,8 @@
     <script>
       $('.input-group.date').datepicker({
         format: "dd/mm/yyyy",
-        weekStart: 1
+        weekStart: 1,              
+        language: 'pt_BR'
       });
 
       $('#btn-resultado').on('click', function() {
@@ -78,99 +98,159 @@
         let horas = 0;
 
         if (entrada && saida) {
-          let entrada_hora = parseInt(entrada.split(':')[0]);
-          let entrada_minuto = parseInt(entrada.split(':')[1]);
+            let entrada_hora = parseInt(entrada.split(':')[0]);
+            let entrada_minuto = parseInt(entrada.split(':')[1]);
 
-          let saida_hora = parseInt(saida.split(':')[0]);
-          let saida_minuto = parseInt(saida.split(':')[1]);
+            let saida_hora = parseInt(saida.split(':')[0]);
+            let saida_minuto = parseInt(saida.split(':')[1]);
 
-          let horas = saida_hora - entrada_hora;
-          let minutos = saida_minuto - entrada_minuto;
+            let horas = saida_hora - entrada_hora;
+            let minutos = saida_minuto - entrada_minuto;
 
-          function zeroEsquerda(numero) {
-            return numero < 10 ? '0' + numero : numero;
-          }
-          horas = zeroEsquerda(horas);
-          minutos = zeroEsquerda(minutos);
-
-          if (minutos < 0) {
-            horas -= 1;
-            minutos = 60 + minutos;
-          }
-
-          $('#valor_horario').val(horas + ':' + minutos);
-
-          let dia = document.getElementById('dia').value;
-          if (dia == '') {
-            alert('Informe o dia');
-            return;
-          }
-          
-          function getDayOfWeek(date) {
-            date = date.split('/').reverse().join('-');
-            const dayOfWeek = new Date(date).getDay();    
-            return isNaN(dayOfWeek) ? null : 
-              ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'][dayOfWeek];
-          }
-
-          let diaDaSemana = getDayOfWeek(dia);
-          if ( diaDaSemana == 'Segunda' || diaDaSemana == 'Terça' || diaDaSemana == 'Quarta' || diaDaSemana == 'Quinta') {
-            if (horas < 9 && minutos < 39) {
-              let resultado_horas =  horas - 9;
-              let resultado_minutos = minutos - 39;
-              $('#resultado_horario').val('Horas trabalhadas insuficientes: ' + resultado_horas + ':' + resultado_minutos).addClass('text-danger');
-              return;
-            } else {
-              let resultado_horas =  9 - horas;
-              let resultado_minutos = 39 - minutos;
-              $('#resultado_horario').val('Horas trabalhadas suficientes: ' +  + resultado_horas + ':' + resultado_minutos).addClass('text-success');
-              return;
+            // Corrigindo o cálculo de minutos negativos
+            if (minutos < 0) {
+                horas -= 1;
+                minutos = 60 + minutos;
             }
-          } else if (diaDaSemana == 'Sexta') {
-            if (horas < 8) {
-              $('#resultado_horario').val('Horas trabalhadas insuficientes: ' + horas + ':' + minutos).addClass('text-danger');
-              return;
-            } else {
-              $('#resultado_horario').val('Horas trabalhadas suficientes: ' + horas + ':' + minutos).addClass('text-success');
-              return;
+
+            // Função para adicionar zero à esquerda
+            function zeroEsquerda(numero) {
+                return numero < 10 ? '0' + numero : numero;
             }
-          } else {
-            alert('Dia inválido');
-            return;
-          }
+
+            horas = zeroEsquerda(horas);
+            minutos = zeroEsquerda(minutos);
+
+            // Atualizando o campo com o valor de horas trabalhadas
+            $('#valor_horario').val(horas + ':' + minutos);
+
+            let dia = document.getElementById('dia').value;
+            if (dia == '') {
+                alert('Informe o dia');
+                return;
+            }
+
+            // Função para obter o dia da semana
+            function getDayOfWeek(date) {
+                date = date.split('/').reverse().join('-');
+                const dayOfWeek = new Date(date).getDay();
+                return isNaN(dayOfWeek) ? null : 
+                    ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'][dayOfWeek];
+            }
+
+            let diaDaSemana = getDayOfWeek(dia);
+
+            if (diaDaSemana == 'Segunda' || diaDaSemana == 'Terça' || diaDaSemana == 'Quarta' || diaDaSemana == 'Quinta') {
+                // Verificação das horas mínimas (9 horas e 39 minutos)
+                let horasMinimas = 9;
+                let minutosMinimos = 39;
+
+                if (horas < horasMinimas || (horas == horasMinimas && minutos < minutosMinimos)) {
+                    let resultado_horas = horasMinimas - horas;
+                    let resultado_minutos = minutosMinimos - minutos;
+
+                    if (resultado_minutos < 0) {
+                        resultado_horas -= 1;
+                        resultado_minutos = 60 + resultado_minutos;
+                    }
+
+                    $('#resultado_horario').val('Horas trabalhadas insuficientes: ' + resultado_horas + ':' + zeroEsquerda(resultado_minutos)).addClass('text-danger');
+                    return;
+                } else {
+                    let resultado_horas = horas - horasMinimas;
+                    let resultado_minutos = minutos - minutosMinimos;
+
+                    if (resultado_minutos < 0) {
+                        resultado_horas -= 1;
+                        resultado_minutos = 60 + resultado_minutos;
+                    }
+
+                    $('#resultado_horario').val('Horas trabalhadas suficientes: ' + zeroEsquerda(resultado_horas) + ':' + zeroEsquerda(resultado_minutos)).addClass('text-success');
+                    return;
+                }
+            } else if (diaDaSemana == 'Sexta') {
+                let horasMinimasSexta = 8;
+
+                if (horas < horasMinimasSexta) {
+                    $('#resultado_horario').val('Horas trabalhadas insuficientes: ' + horas + ':' + minutos).addClass('text-danger');
+                    return;
+                } else {
+                    $('#resultado_horario').val('Horas trabalhadas suficientes: ' + horas + ':' + minutos).addClass('text-success');
+                    return;
+                }
+            } else {
+                alert('Dia inválido: Fim de semana');
+                return;
+            }
         }
       });
 
       $('#btn-salvar').on('click', function() {
-        let dia = document.getElementById('dia').value;
-        let entrada = $('#entrada').val();
-        let saida = $('#saida').val();
-        let horas = $('#valor_horario').val();
-        let resultado = $('#resultado_horario').val();
+          let dia = document.getElementById('dia').value;
+          let entrada = $('#entrada').val();
+          let saida = $('#saida').val();
+          let horas = $('#valor_horario').val();
+          let resultado = $('#resultado_horario').val();
 
-        if (dia == '' || entrada == '' || saida == '' || horas == '' || resultado == '') {
-          alert('Preencha todos os campos');
-          return;
-        }
-
-        let dados = {
-          dia: dia,
-          entrada: entrada,
-          saida: saida,
-          horas: horas,
-          resultado: resultado
-        };
-
-        $.ajax({
-          url: 'salvar.php',
-          type: 'POST',
-          data: dados,
-          success: function(response) {
-            console.log(response);
-            alert(response);
+          if (dia == '' || entrada == '' || saida == '' || horas == '' || resultado == '') {
+              alert('Preencha todos os campos');
+              return;
           }
-        });
+
+          let dados = {
+              dia: dia,
+              entrada: entrada,
+              saida: saida,
+              horas: horas,
+              resultado: resultado
+          };
+
+          // Primeiro, verifica se a data já existe
+          $.ajax({
+              url: 'salvar.php',
+              type: 'POST',
+              data: dados,
+              success: function(response) {
+                  let result = JSON.parse(response);
+
+                  // Se o dia já existe, pede confirmação
+                  if (result.status === 'exists') {
+                      if (confirm(result.message)) {
+                          // Se o usuário confirmar, envia novamente para sobrescrever
+                          sobrescreverDados(dados);
+                      }
+                  } else {
+                      alert(result.message); // Mensagem de sucesso
+                  }
+              }
+          });
       });
+
+      // Função para sobrescrever os dados se o usuário confirmar
+      function sobrescreverDados(dados) {
+          $.ajax({
+              url: 'sobrescrever.php', // Pode ser o mesmo salvar.php ou um separado
+              type: 'POST',
+              data: dados,
+              success: function(response) {
+                  let result = JSON.parse(response);
+                  alert(result.message); // Mensagem de sucesso
+              }
+          });
+      }
+
     </script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js')
+        .then((registration) => {
+          console.log('Service Worker registrado com sucesso:', registration);
+        })
+        .catch((error) => {
+          console.log('Falha ao registrar o Service Worker:', error);
+        });
+      }
+    </script>
+    
   </body>
 </html>
