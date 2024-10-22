@@ -1,9 +1,11 @@
 
-$('.input-group.date').datepicker({
-    format: "dd/mm/yyyy",
-    weekStart: 1,              
-    language: 'pt_BR'
-});
+$(document).ready(function() {
+    $('.input-group.date').datepicker({
+        format: "dd/mm/yyyy",
+        weekStart: 1,              
+        language: 'pt_BR'
+    });
+})
 
 $('#btn-resultado').on('click', function() {
     let entrada = $('#entrada').val();
