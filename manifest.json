@@ -1,6 +1,6 @@
 {
-    "name": "Meu App",
-    "short_name": "MeuApp",
+    "name": "Folha de Ponto",
+    "short_name": "Ponto",
     "description": "Um app simples para controle de ponto",
     "start_url": "index.html",
     "display": "standalone",
