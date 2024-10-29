@@ -2,7 +2,8 @@
 $('.input-group.date').datepicker({
     format: "dd/mm/yyyy",
     weekStart: 1,              
-    language: 'pt_BR'
+    language: 'pt-BR',
+    ignoreReadonly: true
 });
 
 $('#btn-resultado').on('click', function() {
