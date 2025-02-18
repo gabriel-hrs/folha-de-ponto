@@ -185,42 +185,45 @@ $('#btn-recarregar-pagina').on('click', function() {
     location.reload(); // Recarrega a página atual
 });
 
-document.getElementById('btn-notificacao').addEventListener('click', function() {
-    // Pede permissão para enviar notificações
-    if (Notification.permission === "granted") {
-        agendarNotificacao();
-    } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                agendarNotificacao();
-            }
-        });
-    } else {
-        alert("As notificações estão bloqueadas no navegador. Habilite para receber alertas.");
-    }
-});
-
-function agendarNotificacao() {
+document.getElementById('btn-notificacao').addEventListener('click', function () {
     let entrada = document.getElementById('entrada').value;
 
     if (!entrada) {
-        alert("Por favor, insira o horário de entrada primeiro.");
+        alert('Por favor, insira o horário de entrada.');
         return;
     }
 
-    // Convertendo entrada para horário de saída (9h22 depois)
     let [hora, minuto] = entrada.split(':').map(Number);
-    let saidaMinutos = (hora * 60 + minuto) + (9 * 60 + 22); // Adiciona 9h22
 
-    let horaSaida = Math.floor(saidaMinutos / 60);
-    let minutoSaida = saidaMinutos % 60;
+    // Adiciona 9 horas e 22 minutos ao horário de entrada
+    let novaHora = hora + 9;
+    let novoMinuto = minuto + 22;
 
-    let horarioSaida = `${horaSaida.toString().padStart(2, '0')}:${minutoSaida.toString().padStart(2, '0')}`;
+    if (novoMinuto >= 60) {
+        novaHora += 1;
+        novoMinuto -= 60;
+    }
 
-    setTimeout(() => {
-        new Notification("Hora de sair!", {
-            body: `Seu horário de saída chegou: ${horarioSaida}`,
-            icon: "/icon-192x192.png" // Ícone da notificação (ajuste conforme o PWA)
+    // Ajuste para formato HH:MM
+    let saidaFormatada = `${String(novaHora).padStart(2, '0')}:${String(novoMinuto).padStart(2, '0')}`;
+
+    // Exibe alerta com o horário de saída
+    alert(`Seu horário de saída será às ${saidaFormatada}`);
+
+    // Enviar notificação push (se permitido pelo usuário)
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Aviso de saída', {
+            body: `Seu horário de saída é às ${saidaFormatada}`,
+            icon: 'icon-192x192.png'
         });
-    }, 5000); // Simulação: Notifica após 5 segundos (troque para o tempo real)
-}
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                new Notification('Aviso de saída', {
+                    body: `Seu horário de saída é às ${saidaFormatada}`,
+                    icon: 'icon-192x192.png'
+                });
+            }
+        });
+    }
+});
