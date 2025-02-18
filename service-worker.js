@@ -36,11 +36,24 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
-          if (cacheWhitelist.indexOf(cache) === -1) {
+          if (!cacheWhitelist.includes(cache)) {
             return caches.delete(cache);
           }
         })
       );
     })
   );
+});
+
+// Evento de Push Notification
+self.addEventListener('push', function(event) {
+    const options = {
+        body: event.data ? event.data.text() : 'Notificação de saída!',
+        icon: '/icon-192x192.png',
+        vibrate: [200, 100, 200],
+    };
+
+    event.waitUntil(
+        self.registration.showNotification('Hora de sair!', options)
+    );
 });
