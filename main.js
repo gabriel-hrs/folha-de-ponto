@@ -7,140 +7,246 @@ $('.input-group.date').datepicker({
     todayHighlight: true
 }).datepicker('setDate', new Date());
 
-$('#btn-resultado').on('click', function() {
-    let entrada = $('#entrada').val();
-    let saida = $('#saida').val();
+// $('#btn-resultado').on('click', function() {
+//     let entrada = $('#entrada').val();
+//     let saida = $('#saida').val();
 
-    // Validação: Verifica se os campos de entrada e saída foram preenchidos
-    if (entrada === '' || saida === '') {
-        alert('Por favor, insira os horários de entrada e saída.');
-        return;
-    }
+//     // Validação: Verifica se os campos de entrada e saída foram preenchidos
+//     if (entrada === '' || saida === '') {
+//         alert('Por favor, insira os horários de entrada e saída.');
+//         return;
+//     }
 
-    // Cálculo de horas trabalhadas
-    let entrada_hora = parseInt(entrada.split(':')[0]);
-    let entrada_minuto = parseInt(entrada.split(':')[1]);
+//     // Cálculo de horas trabalhadas
+//     let entrada_hora = parseInt(entrada.split(':')[0]);
+//     let entrada_minuto = parseInt(entrada.split(':')[1]);
 
-    let saida_hora = parseInt(saida.split(':')[0]);
-    let saida_minuto = parseInt(saida.split(':')[1]);
+//     let saida_hora = parseInt(saida.split(':')[0]);
+//     let saida_minuto = parseInt(saida.split(':')[1]);
 
-    let horas = saida_hora - entrada_hora;
-    let minutos = saida_minuto - entrada_minuto;
+//     let horas = saida_hora - entrada_hora;
+//     let minutos = saida_minuto - entrada_minuto;
 
-    if (minutos < 0) {
-        horas -= 1;
-        minutos += 60;
-    }
+//     if (minutos < 0) {
+//         horas -= 1;
+//         minutos += 60;
+//     }
 
-    function zeroEsquerda(numero) {
-        return numero < 10 ? '0' + numero : numero;
-    }
+//     function zeroEsquerda(numero) {
+//         return numero < 10 ? '0' + numero : numero;
+//     }
 
-    let horasFormatadas = zeroEsquerda(horas);
-    let minutosFormatados = zeroEsquerda(minutos);
+//     let horasFormatadas = zeroEsquerda(horas);
+//     let minutosFormatados = zeroEsquerda(minutos);
 
-    $('#valor_horario').val(horasFormatadas + ':' + minutosFormatados);
+//     $('#valor_horario').val(horasFormatadas + ':' + minutosFormatados);
 
-    // Cálculo de horas mínimas esperadas (9h22 = 562 minutos)
-    let minutosEsperadosTotais = 9 * 60 + 22;
+//     // Cálculo de horas mínimas esperadas (9h22 = 562 minutos)
+//     let minutosEsperadosTotais = 9 * 60 + 22;
 
-    // Total de minutos trabalhados
-    let minutosTrabalhados = horas * 60 + minutos;
+//     // Total de minutos trabalhados
+//     let minutosTrabalhados = horas * 60 + minutos;
 
-    // Cálculo da diferença
-    let resultadoMinutos = minutosTrabalhados - minutosEsperadosTotais;
-    let resultadoHoras = Math.floor(Math.abs(resultadoMinutos) / 60);
-    let resultadoRestanteMinutos = Math.abs(resultadoMinutos) % 60;
+//     // Cálculo da diferença
+//     let resultadoMinutos = minutosTrabalhados - minutosEsperadosTotais;
+//     let resultadoHoras = Math.floor(Math.abs(resultadoMinutos) / 60);
+//     let resultadoRestanteMinutos = Math.abs(resultadoMinutos) % 60;
 
-    // Formata horas e minutos com zero à esquerda
-    resultadoHoras = zeroEsquerda(resultadoHoras);
-    resultadoRestanteMinutos = zeroEsquerda(resultadoRestanteMinutos);
+//     // Formata horas e minutos com zero à esquerda
+//     resultadoHoras = zeroEsquerda(resultadoHoras);
+//     resultadoRestanteMinutos = zeroEsquerda(resultadoRestanteMinutos);
 
-    // Define mensagem do resultado
-    let resultadoMensagem = (resultadoMinutos < 0 ? 'horas a menos' : 'horas a mais');
-    let resultado = (resultadoMinutos < 0 ? '-' : '+') + resultadoHoras + ':' + resultadoRestanteMinutos;
+//     // Define mensagem do resultado
+//     let resultadoMensagem = (resultadoMinutos < 0 ? 'horas a menos' : 'horas a mais');
+//     let resultado = (resultadoMinutos < 0 ? '-' : '+') + resultadoHoras + ':' + resultadoRestanteMinutos;
 
-    // Atualiza o campo de resultado e aplica estilos
-    $('#resultado_horario').val(resultado + ' (' + resultadoMensagem + ')');
-    $('#resultado_horario').css('color', resultadoMinutos < 0 ? 'red' : 'green');
-});
+//     // Atualiza o campo de resultado e aplica estilos
+//     $('#resultado_horario').val(resultado + ' (' + resultadoMensagem + ')');
+//     $('#resultado_horario').css('color', resultadoMinutos < 0 ? 'red' : 'green');
+// });
 
-$('#btn-salvar').on('click', function() {
+// $('#btn-salvar').on('click', function() {
+//     let dia = document.getElementById('dia').value;
+//     let entrada = $('#entrada').val();
+//     let saida = $('#saida').val();
+//     let horas = $('#valor_horario').val();
+//     let resultado = $('#resultado_horario').val();
+
+//     if (dia == '' || entrada == '' || saida == '' || horas == '' || resultado == '') {
+//         alert('Preencha todos os campos');
+//         return;
+//     }
+
+//     let dados = {
+//         dia: dia,
+//         entrada: entrada,
+//         saida: saida,
+//         horas: horas,
+//         resultado: resultado
+//     };
+
+//     // Primeiro, verifica se a data já existe no arquivo JSON usando AJAX
+//     $.ajax({
+//         url: 'verificar_data.php', // Novo arquivo PHP para verificar
+//         type: 'POST',
+//         data: { dia: dia },
+//         success: function(response) {
+//             if (response.existe) {
+//                 // Se a data já existe, exibe uma confirmação para sobrescrever
+//                 if (confirm('O dia ' + dia + ' já está registrado. Deseja sobrescrevê-lo?')) {
+//                     // Se confirmado, envia os dados para salvar
+//                     salvarDados(dados);
+//                 }
+//             } else {
+//                 // Se a data não existe, salva diretamente
+//                 salvarDados(dados);
+//             }
+//         }
+//     });
+// });
+
+function salvarPonto(tipo) {
     let dia = document.getElementById('dia').value;
     let entrada = $('#entrada').val();
     let saida = $('#saida').val();
-    let horas = $('#valor_horario').val();
-    let resultado = $('#resultado_horario').val();
 
-    if (dia == '' || entrada == '' || saida == '' || horas == '' || resultado == '') {
-        alert('Preencha todos os campos');
+    if (!dia) {
+        alert('Selecione um dia.');
         return;
     }
 
-    let dados = {
-        dia: dia,
-        entrada: entrada,
-        saida: saida,
-        horas: horas,
-        resultado: resultado
-    };
+    if (tipo === 'entrada' && !entrada) {
+        alert('Insira o horário de entrada.');
+        return;
+    }
+    
+    if (tipo === 'saida' && !saida) {
+        alert('Insira o horário de saída.');
+        return;
+    }
 
-    // Primeiro, verifica se a data já existe no arquivo JSON usando AJAX
+    // Verifica se o dia já existe no JSON
     $.ajax({
-        url: 'verificar_data.php', // Novo arquivo PHP para verificar
+        url: 'verificar_data.php', // Esse PHP deve retornar { existe: true/false, dados: {entrada, saida} }
         type: 'POST',
         data: { dia: dia },
         success: function(response) {
-            if (response.existe) {
-                // Se a data já existe, exibe uma confirmação para sobrescrever
-                if (confirm('O dia ' + dia + ' já está registrado. Deseja sobrescrevê-lo?')) {
-                    // Se confirmado, envia os dados para salvar
-                    salvarDados(dados);
-                }
-            } else {
-                // Se a data não existe, salva diretamente
-                salvarDados(dados);
-            }
-        }
-    });
-});
+            let novoDados = {
+                dia: dia,
+                entrada: response.existe ? response.dados.entrada : "",
+                saida: response.existe ? response.dados.saida : ""
+            };
 
-// Função para enviar os dados ao PHP e salvar
-function salvarDados(dados) {
-    $.ajax({
-        url: 'salvar.php',
-        type: 'POST',
-        data: dados,
-        success: function(response) {
-            console.log(response, dados);
-            alert('Arquivo salvo com sucesso!');
+            if (tipo === 'entrada') {
+                novoDados.entrada = entrada;
+
+                // Calcula o horário de saída esperado
+                let [hora, minuto] = entrada.split(':').map(Number);
+                let novaHora = hora + 9;
+                let novoMinuto = minuto + 22;
+
+                if (novoMinuto >= 60) {
+                    novaHora += 1;
+                    novoMinuto -= 60;
+                }
+
+                let saidaEsperada = `${String(novaHora).padStart(2, '0')}:${String(novoMinuto).padStart(2, '0')}`;
+                alert(`Seu horário de saída será às ${saidaEsperada}`);
+
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Aviso de saída', {
+                        body: `Seu horário de saída é às ${saidaEsperada}`,
+                        icon: 'icon-192x192.png'
+                    });
+                }
+            } else if (tipo === 'saida') {
+                novoDados.saida = saida;
+
+                // Se já tem entrada, calcular as horas trabalhadas
+                if (novoDados.entrada) {
+                    let [entradaHora, entradaMinuto] = novoDados.entrada.split(':').map(Number);
+                    let [saidaHora, saidaMinuto] = saida.split(':').map(Number);
+
+                    let minutosTrabalhados = (saidaHora * 60 + saidaMinuto) - (entradaHora * 60 + entradaMinuto);
+                    let minutosEsperadosTotais = 9 * 60 + 22; // 9h22 em minutos
+
+                    let resultadoMinutos = minutosTrabalhados - minutosEsperadosTotais;
+                    let resultadoHoras = Math.floor(Math.abs(resultadoMinutos) / 60);
+                    let resultadoRestanteMinutos = Math.abs(resultadoMinutos) % 60;
+
+                    // Formata o resultado
+                    let resultadoMensagem = resultadoMinutos < 0 ? 'horas a menos' : 'horas a mais';
+                    let resultado = (resultadoMinutos < 0 ? '-' : '+') + 
+                        String(resultadoHoras).padStart(2, '0') + ':' + 
+                        String(resultadoRestanteMinutos).padStart(2, '0');
+
+                    // Exibe o resultado no campo de texto e ajusta a cor
+                    $('#resultado_horario').val(resultado + ' (' + resultadoMensagem + ')');
+                    $('#resultado_horario').css('color', resultadoMinutos < 0 ? 'red' : 'green');
+                }
+            }
+
+            // Agora salva os dados no JSON sem sobrescrever a entrada ou saída existente
+            $.ajax({
+                url: 'salvar.php',
+                type: 'POST',
+                data: novoDados,
+                success: function() {
+                    alert('Ponto salvo com sucesso!');
+                }
+            });
         }
     });
 }
+
+// Eventos dos botões
+$('#btn-resultado-entrada').on('click', function() {
+    salvarPonto('entrada');
+});
+
+$('#btn-resultado-saida').on('click', function() {
+    salvarPonto('saida');
+});
+
+
+// // Função para enviar os dados ao PHP e salvar
+// function salvarDados(dados) {
+//     $.ajax({
+//         url: 'salvar.php',
+//         type: 'POST',
+//         data: dados,
+//         success: function(response) {
+//             console.log(response, dados);
+//             alert('Arquivo salvo com sucesso!');
+//         }
+//     });
+// }
 
 // Função para carregar os dados do arquivo JSON
 async function carregarDados() {
     try {
         const response = await fetch('ponto.json');
-        const dados = await response.json();
+        if (!response.ok) throw new Error('Erro ao carregar o arquivo JSON.');
 
-        const tabela = document.getElementById('tabela-dados').getElementsByTagName('tbody')[0];
+        const dados = await response.json();
+        const tabela = document.getElementById('tabela-dados');
+
+        // Limpa a tabela antes de inserir novos dados
+        tabela.innerHTML = '';
 
         dados.forEach(item => {
             const linha = tabela.insertRow();
-            const celula1 = linha.insertCell(0);
-            const celula2 = linha.insertCell(1);
-            // Adicione mais células conforme necessário
-
-            celula1.textContent = item.campo1; // Substitua 'campo1' pelo nome do campo real
-            celula2.textContent = item.campo2; // Substitua 'campo2' pelo nome do campo real
-            // Preencha mais células conforme necessário
+            linha.insertCell(0).textContent = item.dia || '—';
+            linha.insertCell(1).textContent = item.entrada || '—';
+            linha.insertCell(2).textContent = item.saida || '—';
+            linha.insertCell(3).textContent = item.horas || '—';
+            linha.insertCell(4).textContent = item.resultado || '—';
         });
+
     } catch (error) {
         console.error('Erro ao carregar dados:', error);
     }
 }
-
 document.addEventListener('DOMContentLoaded', carregarDados);
 
 $('#btn-novo-arquivo').on('click', function() {

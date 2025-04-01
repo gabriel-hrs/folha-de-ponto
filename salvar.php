@@ -1,48 +1,58 @@
 <?php
+header('Content-Type: application/json');
+
 $dia = $_POST['dia'];
-$entrada = $_POST['entrada'];
-$saida = $_POST['saida'];
-$horas = $_POST['horas'];
-$resultado = $_POST['resultado'];
+$entrada = $_POST['entrada'] ?? null;
+$saida = $_POST['saida'] ?? null;
+$horas = $_POST['horas'] ?? "";
+$resultado = $_POST['resultado'] ?? "";
 
 // Verifica se o arquivo JSON já existe
 if (file_exists("ponto.json")) {
     // Carrega o conteúdo do JSON
     $jsonAtual = file_get_contents("ponto.json");
-    $dados = json_decode($jsonAtual, true); // Converte para array associativo
+    $dados = json_decode($jsonAtual, true);
 } else {
-    $dados = array(); // Se não existir, cria um array vazio
+    $dados = []; // Se não existir, cria um array vazio
 }
 
-// Verifica se a data já está registrada
-foreach ($dados as $registro) {
+$diaExiste = false;
+
+// Percorre os registros para verificar se a data já está salva
+foreach ($dados as &$registro) {
     if ($registro['dia'] == $dia) {
-        // Retorna um alerta se o dia já existir
-        echo json_encode(['status' => 'exists', 'message' => "O dia $dia já está registrado. Deseja sobrescrever?"]);
-        exit; // Encerra o script para evitar sobrescrita
+        // Atualiza somente os campos que não estão vazios
+        if ($entrada) $registro['entrada'] = $entrada;
+        if ($saida) {
+            $registro['saida'] = $saida;
+            $registro['horas'] = $horas;
+            $registro['resultado'] = $resultado;
+        }
+        $diaExiste = true;
+        break;
     }
 }
 
-// Se a data não existir ou houver confirmação para sobrescrever, continua aqui
-$novoRegistro = array(
-    'dia' => $dia,
-    'entrada' => $entrada,
-    'saida' => $saida,
-    'horas' => $horas,
-    'resultado' => $resultado
-);
+// Se a data não existir, cria um novo registro
+if (!$diaExiste) {
+    $novoRegistro = [
+        'dia' => $dia,
+        'entrada' => $entrada ?? "",
+        'saida' => $saida ?? "",
+        'horas' => $horas,
+        'resultado' => $resultado
+    ];
+    $dados[] = $novoRegistro;
+}
 
-// Adiciona o novo registro
-$dados[] = $novoRegistro;
-
-// Função para ordenar os registros por data
+// Ordena os registros por data
 usort($dados, function($a, $b) {
     $dataA = DateTime::createFromFormat('d/m/Y', $a['dia']);
     $dataB = DateTime::createFromFormat('d/m/Y', $b['dia']);
-    return $dataA <=> $dataB; // Ordena da mais antiga para a mais nova
+    return $dataA <=> $dataB;
 });
 
-// Converte o array de volta para JSON e salva o arquivo
+// Salva o JSON atualizado
 $json = json_encode($dados, JSON_PRETTY_PRINT);
 file_put_contents("ponto.json", $json);
 
