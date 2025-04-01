@@ -225,11 +225,18 @@ $('#btn-resultado-saida').on('click', function() {
 // Função para carregar os dados do arquivo JSON
 async function carregarDados() {
     try {
+        const tabela = document.getElementById('tabela-dados');
+
+        // Se a tabela não existir, não faz nada
+        if (!tabela) {
+            console.error('Elemento #tabela-dados não encontrado.');
+            return;
+        }
+
         const response = await fetch('ponto.json');
         if (!response.ok) throw new Error('Erro ao carregar o arquivo JSON.');
 
         const dados = await response.json();
-        const tabela = document.getElementById('tabela-dados');
 
         // Limpa a tabela antes de inserir novos dados
         tabela.innerHTML = '';
@@ -247,6 +254,7 @@ async function carregarDados() {
         console.error('Erro ao carregar dados:', error);
     }
 }
+
 document.addEventListener('DOMContentLoaded', carregarDados);
 
 $('#btn-novo-arquivo').on('click', function() {
@@ -291,45 +299,45 @@ $('#btn-recarregar-pagina').on('click', function() {
     location.reload(); // Recarrega a página atual
 });
 
-document.getElementById('btn-notificacao').addEventListener('click', function () {
-    let entrada = document.getElementById('entrada').value;
+// document.getElementById('btn-notificacao').addEventListener('click', function () {
+//     let entrada = document.getElementById('entrada').value;
 
-    if (!entrada) {
-        alert('Por favor, insira o horário de entrada.');
-        return;
-    }
+//     if (!entrada) {
+//         alert('Por favor, insira o horário de entrada.');
+//         return;
+//     }
 
-    let [hora, minuto] = entrada.split(':').map(Number);
+//     let [hora, minuto] = entrada.split(':').map(Number);
 
-    // Adiciona 9 horas e 22 minutos ao horário de entrada
-    let novaHora = hora + 9;
-    let novoMinuto = minuto + 22;
+//     // Adiciona 9 horas e 22 minutos ao horário de entrada
+//     let novaHora = hora + 9;
+//     let novoMinuto = minuto + 22;
 
-    if (novoMinuto >= 60) {
-        novaHora += 1;
-        novoMinuto -= 60;
-    }
+//     if (novoMinuto >= 60) {
+//         novaHora += 1;
+//         novoMinuto -= 60;
+//     }
 
-    // Ajuste para formato HH:MM
-    let saidaFormatada = `${String(novaHora).padStart(2, '0')}:${String(novoMinuto).padStart(2, '0')}`;
+//     // Ajuste para formato HH:MM
+//     let saidaFormatada = `${String(novaHora).padStart(2, '0')}:${String(novoMinuto).padStart(2, '0')}`;
 
-    // Exibe alerta com o horário de saída
-    alert(`Seu horário de saída será às ${saidaFormatada}`);
+//     // Exibe alerta com o horário de saída
+//     alert(`Seu horário de saída será às ${saidaFormatada}`);
 
-    // Enviar notificação push (se permitido pelo usuário)
-    if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Aviso de saída', {
-            body: `Seu horário de saída é às ${saidaFormatada}`,
-            icon: 'icon-192x192.png'
-        });
-    } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-                new Notification('Aviso de saída', {
-                    body: `Seu horário de saída é às ${saidaFormatada}`,
-                    icon: 'icon-192x192.png'
-                });
-            }
-        });
-    }
-});
+//     // Enviar notificação push (se permitido pelo usuário)
+//     if ('Notification' in window && Notification.permission === 'granted') {
+//         new Notification('Aviso de saída', {
+//             body: `Seu horário de saída é às ${saidaFormatada}`,
+//             icon: 'icon-192x192.png'
+//         });
+//     } else if (Notification.permission !== 'denied') {
+//         Notification.requestPermission().then(permission => {
+//             if (permission === 'granted') {
+//                 new Notification('Aviso de saída', {
+//                     body: `Seu horário de saída é às ${saidaFormatada}`,
+//                     icon: 'icon-192x192.png'
+//                 });
+//             }
+//         });
+//     }
+// });
