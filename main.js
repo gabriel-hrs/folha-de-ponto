@@ -1,9 +1,119 @@
-import { db, auth, authReady } from "./firebase-config.js";
+// Se o SEU firebase-config.js reexporta tudo (recomendado), use esta linha:
+import { db, auth, authReady, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut } from "./firebase-config.js";
+
+// Se NÃO reexporta (e só exporta db/auth/authReady), então troque a linha acima por:
+// import { db, auth, authReady } from "./firebase-config.js";
+// import { GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+
 import {
   doc, getDoc, setDoc, collection, getDocs, query, where
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-// Normaliza dd/mm/yyyy com zeros à esquerda
+
+/* =======================
+   UI: Status + Login/Logout
+   ======================= */
+// function atualizarStatusUser() {
+//   const u = auth.currentUser;
+//   const el = document.getElementById('status-user');
+//   if (!el) return;
+//   if (!u) { el.textContent = 'Deslogado'; return; }
+//   el.textContent = u.isAnonymous ? `Convidado (anônimo)` : `Logado: ${u.email || u.displayName || u.uid}`;
+// }
+function atualizarStatusUser() {
+  const u = auth.currentUser;
+
+  // Chip do topo
+  const icon = document.getElementById('user-icon');
+  const label = document.getElementById('user-label');
+
+  if (!u) {
+    if (icon) icon.className = 'bi bi-person fs-5';
+    if (label) label.textContent = 'Carregando...';
+    return;
+  }
+
+  if (u.isAnonymous) {
+    if (icon) icon.className = 'bi bi-person fs-5';
+    if (label) label.textContent = 'Convidado';
+  } else {
+    if (icon) icon.className = 'bi bi-person-check fs-5';
+    if (label) label.textContent = u.displayName || u.email || 'Conta';
+  }
+
+  atualizarUIConta(u);
+}
+
+function atualizarUIConta(u) {
+  // Elementos do modal
+  const mIcon   = document.getElementById('modal-user-icon');
+  const mName   = document.getElementById('modal-user-name');
+  const mEmail  = document.getElementById('modal-user-email');
+  const boxLog  = document.getElementById('actions-logged');
+  const boxAnon = document.getElementById('actions-anon');
+
+  if (!u) {
+    if (mIcon)  mIcon.className = 'bi bi-person fs-2';
+    if (mName)  mName.textContent = 'Carregando...';
+    if (mEmail) mEmail.textContent = '';
+    if (boxLog)  boxLog.classList.add('d-none');
+    if (boxAnon) boxAnon.classList.add('d-none');
+    return;
+  }
+
+  if (u.isAnonymous) {
+    if (mIcon)  mIcon.className = 'bi bi-person fs-2';
+    if (mName)  mName.textContent = 'Convidado (anônimo)';
+    if (mEmail) mEmail.textContent = 'Entre para sincronizar seus pontos';
+    if (boxLog)  boxLog.classList.add('d-none');
+    if (boxAnon) boxAnon.classList.remove('d-none');
+  } else {
+    if (mIcon)  mIcon.className = 'bi bi-person-check fs-2';
+    if (mName)  mName.textContent = u.displayName || 'Usuário';
+    if (mEmail) mEmail.textContent = u.email || '';
+    if (boxAnon) boxAnon.classList.add('d-none');
+    if (boxLog)  boxLog.classList.remove('d-none');
+  }
+}
+
+async function entrarComGoogle() {
+  const provider = new GoogleAuthProvider();
+  const u = auth.currentUser;
+
+  try {
+    if (u && u.isAnonymous) {
+      // 🔗 mantém o MESMO uid (promove anônimo)
+      await linkWithPopup(u, provider);
+    } else {
+      await signInWithPopup(auth, provider);
+    }
+    atualizarStatusUser();
+    // re-carrega tabela se estiver na página de listagem
+    carregarDados();
+  } catch (e) {
+    if (e.code === 'auth/credential-already-in-use') {
+      // já existe usuário com essa conta → faz signIn
+      await signInWithPopup(auth, provider);
+      atualizarStatusUser();
+      carregarDados();
+    } else {
+      console.error('Erro no Google auth:', e);
+      alert('Não foi possível entrar com Google.');
+    }
+  }
+}
+
+async function sair() {
+  await signOut(auth);
+  atualizarStatusUser();
+  // limpa tabela se houver
+  const tabela = document.getElementById("tabela-dados");
+  if (tabela) tabela.innerHTML = "";
+}
+
+/* =======================
+   Util: Datas/IDs
+   ======================= */
 function normalizarDia(diaStr) {
   if (!diaStr) return "";
   const [d, m, a] = diaStr.split("/").map(s => s.trim());
@@ -12,18 +122,44 @@ function normalizarDia(diaStr) {
   return `${dd}/${mm}/${a}`;
 }
 
-// Gera um ID seguro para o doc (YYYY-MM-DD)
-function docIdFromDia(diaDDMMYYYY) {
-  const [dd, mm, yyyy] = diaDDMMYYYY.split("/");
-  return `${yyyy}-${mm}-${dd}`; // ex.: 2025-08-25
+// Lê #dia como type="date" (YYYY-MM-DD) ou dd/mm/yyyy e retorna dd/mm/yyyy
+function lerDiaNormalizado() {
+  const el = document.getElementById("dia");
+  if (!el) return "";
+  const v = el.value?.trim();
+  if (!v) return "";
+  if (el.type === "date" || /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const [yyyy, mm, dd] = v.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return normalizarDia(v);
 }
 
-// -------- salvar entrada (sem getDoc) --------
+// Define hoje em input[type=date]
+(function setHojeNoDate() {
+  const el = document.getElementById("dia");
+  if (!el || el.type !== "date") return;
+  const hoje = new Date();
+  const yyyy = hoje.getFullYear();
+  const mm = String(hoje.getMonth()+1).padStart(2,"0");
+  const dd = String(hoje.getDate()).padStart(2,"0");
+  el.value = `${yyyy}-${mm}-${dd}`;
+})();
+
+// ID seguro YYYY-MM-DD (sem "/")
+function docIdFromDia(diaDDMMYYYY) {
+  const [dd, mm, yyyy] = diaDDMMYYYY.split("/");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/* =======================
+   Fluxo: ENTRADA
+   ======================= */
 async function salvarEntrada() {
   const user = auth.currentUser;
   if (!user) { alert("Autenticando... tente novamente."); return; }
 
-  const dia = normalizarDia(document.getElementById("dia")?.value?.trim());
+  const dia = lerDiaNormalizado();
   const entrada = document.getElementById("entrada")?.value?.trim();
   if (!dia)    { alert("Selecione o dia!"); return; }
   if (!entrada){ alert("Informe o horário de entrada!"); return; }
@@ -31,12 +167,12 @@ async function salvarEntrada() {
   const docId = docIdFromDia(dia);
   const docRef = doc(db, "pontos", docId);
 
-  // grava direto; evita getDoc em documento inexistente (regras exigem ownerUid)
   const payload = { ownerUid: user.uid, dia, entrada };
   console.log("Salvar ENTRADA payload:", payload);
+
   await setDoc(docRef, payload, { merge: true });
 
-  // saída prevista +9h22
+  // saída prevista + 9h22
   let [h, m] = entrada.split(":").map(Number);
   m += 22; h += 9 + Math.floor(m / 60); m = m % 60;
   const saidaPrev = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
@@ -57,12 +193,14 @@ async function salvarEntrada() {
   carregarDados();
 }
 
-// -------- salvar saída (lê doc existente) --------
+/* =======================
+   Fluxo: SAÍDA
+   ======================= */
 async function salvarSaida() {
   const user = auth.currentUser;
   if (!user) { alert("Autenticando... tente novamente."); return; }
 
-  const dia = normalizarDia(document.getElementById("dia")?.value?.trim());
+  const dia = lerDiaNormalizado();
   const saida = document.getElementById("saida")?.value?.trim();
   if (!dia)   { alert("Selecione o dia!"); return; }
   if (!saida) { alert("Informe o horário de saída!"); return; }
@@ -75,7 +213,6 @@ async function salvarSaida() {
     alert("Ainda não há ENTRADA registrada para este dia. Salve a entrada primeiro.");
     return;
   }
-
   const dados = snap.data();
   if (dados.ownerUid !== user.uid) {
     alert("Você não tem permissão para alterar este registro.");
@@ -103,7 +240,6 @@ async function salvarSaida() {
     mostrarResultadoDoDia(novos.horas, novos.resultado);
   }
 
-  // mantém ownerUid/dia
   novos.ownerUid = user.uid;
   novos.dia = dia;
 
@@ -113,7 +249,9 @@ async function salvarSaida() {
   carregarDados();
 }
 
-// alerta com resumo do dia
+/* =======================
+   UI: Resumo do dia
+   ======================= */
 function mostrarResultadoDoDia(horas, resultado) {
   const msg = `
     <div class="alert alert-info mt-3" role="alert">
@@ -127,7 +265,9 @@ function mostrarResultadoDoDia(horas, resultado) {
   container.insertAdjacentHTML("beforeend", msg);
 }
 
-// listar apenas docs do usuário atual
+/* =======================
+   Listagem (somente do usuário atual)
+   ======================= */
 async function carregarDados() {
   const tabela = document.getElementById("tabela-dados");
   if (!tabela) return;
@@ -141,6 +281,7 @@ async function carregarDados() {
   const registros = [];
   snap.forEach(d => registros.push(d.data()));
 
+  // ordena por data (dd/mm/yyyy → Date)
   registros.sort((a,b) => {
     const [da,ma,aa] = a.dia.split("/").map(Number);
     const [db,mb,ab] = b.dia.split("/").map(Number);
@@ -157,12 +298,16 @@ async function carregarDados() {
   });
 }
 
-// eventos só após auth pronta
+/* =======================
+   Eventos
+   ======================= */
 authReady.then(() => {
-  document.getElementById("btn-resultado-entrada")
-    ?.addEventListener("click", salvarEntrada);
-  document.getElementById("btn-resultado-saida")
-    ?.addEventListener("click", salvarSaida);
+  atualizarStatusUser();
+  document.getElementById("btn-login-google")?.addEventListener("click", entrarComGoogle);
+  document.getElementById("btn-sair")?.addEventListener("click", sair);
+
+  document.getElementById("btn-resultado-entrada")?.addEventListener("click", salvarEntrada);
+  document.getElementById("btn-resultado-saida")?.addEventListener("click", salvarSaida);
 
   carregarDados();
 });

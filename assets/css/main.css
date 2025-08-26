@@ -1,0 +1,33 @@
+.active-link { 
+    color: #0d6efd !important; 
+    font-weight: bold; 
+}
+
+.disabled-link { 
+    pointer-events: none; 
+}
+
+#user-chip small { 
+    line-height: 1; 
+}
+
+.modal-content { 
+    box-shadow: 0 10px 30px rgba(0,0,0,.12); 
+}
+
+table { 
+    width: 100%; 
+    border-collapse: collapse; 
+}
+
+table, th, td { border: 1px solid #ddd; }
+
+th, td { padding: 10px; text-align: left; }
+
+th { background-color: #f8f9fa; }
+
+@media (max-width: 768px) { 
+    .overflow-scroll-mobile { 
+        overflow-y: scroll !important; 
+    } 
+}
