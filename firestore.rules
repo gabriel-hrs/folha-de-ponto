@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /pontos/{docId} {
+      // READ: usa resource.data (doc existente)
+      allow read: if request.auth != null
+                  && resource.data.ownerUid == request.auth.uid;
+
+      // WRITE: usa request.resource.data (doc que está sendo escrito)
+      allow write: if request.auth != null
+                   && request.resource.data.ownerUid == request.auth.uid;
+    }
+  }
+}
