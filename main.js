@@ -562,15 +562,6 @@ async function entrarComGoogle() {
     } else {
       await signInWithPopup(auth, provider);
     }
-<<<<<<< HEAD
-    atualizarStatusUser();
-    carregarDados();
-  } catch (e) {
-    if (e.code === "auth/credential-already-in-use") {
-      await signInWithPopup(auth, provider);
-      atualizarStatusUser();
-      carregarDados();
-=======
   } catch (e) {
     // Se popup for bloqueado ou cancelado, usa redirect
     if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/cancelled-popup-request') {
@@ -598,7 +589,6 @@ async function entrarComGoogle() {
         console.error('Erro no signIn após credential-already-in-use:', e3);
         alert('Não foi possível entrar com Google.');
       }
->>>>>>> de1f708b7fbdfd80647d4215db47534b8d06f8b1
     } else {
       console.error("Erro no Google auth:", e);
       alert("Não foi possível entrar com Google.");
