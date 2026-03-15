@@ -79,3 +79,15 @@ self.addEventListener('push', (event) => {
   };
   event.waitUntil(self.registration.showNotification('Hora de sair!', options));
 });
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const allClients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+    if (allClients.length > 0) {
+      allClients[0].focus();
+    } else {
+      await self.clients.openWindow('./'); // abre a raiz do app
+    }
+  })());
+});

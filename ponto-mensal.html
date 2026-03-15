@@ -65,26 +65,22 @@
 
     <main>
       <div class="container overflow-scroll-mobile">
-        <h1 class="d-flex justify-content-center align-items-center my-3 gap-3">Folha de ponto</h1>
-
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Entrada</th>
-              <th>Saída</th>
-              <th>Horas Trabalhadas</th>
-              <th>Resultado</th>
-            </tr>
-          </thead>
-          <tbody id="tabela-dados">
-            <!-- preenchido via main.js/carregarDados() -->
-          </tbody>
-        </table>
-
-        <div class="d-md-flex justify-content-center align-items-center gap-3 mt-5">
-          <button id="btn-recarregar-pagina" type="button" class="btn btn-primary w-100 mb-3">Recarregar ponto</button>
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h1 class="d-flex justify-content-center align-items-center mb-0 gap-3">Folha de ponto</h1>
+          <div class="d-md-flex justify-content-center align-items-center gap-3">
+            <button id="btn-recarregar-pagina" type="button" class="btn btn-primary w-100 mb-0">Recarregar ponto</button>
+          </div>
         </div>
+
+        <div class="mb-3">
+          <select id="tipo-agrupamento" class="form-select">
+            <option value="mes">Agrupar por mês</option>
+            <option value="ano">Agrupar por ano</option>
+            <option value="todos">Mostrar tudo</option>
+          </select>
+        </div>
+
+        <div class="accordion" id="accordion-pontos"></div>
       </div>
 
       <!-- Bottom nav -->
