@@ -543,16 +543,26 @@ function atualizarUIConta(u) {
   }
 }
 
+let loginEmProgresso = false;
+
 async function entrarComGoogle() {
-  const provider = new GoogleAuthProvider();
-  const u = auth.currentUser;
+  if (loginEmProgresso) return;
+  loginEmProgresso = true;
 
   try {
+    const provider = new GoogleAuthProvider();
+    // opcional: idioma
+    auth.useDeviceLanguage && auth.useDeviceLanguage();
+
+    const u = auth.currentUser;
+
+    // Tenta popup primeiro (melhor UX)
     if (u && u.isAnonymous) {
       await linkWithPopup(u, provider);
     } else {
       await signInWithPopup(auth, provider);
     }
+<<<<<<< HEAD
     atualizarStatusUser();
     carregarDados();
   } catch (e) {
@@ -560,10 +570,43 @@ async function entrarComGoogle() {
       await signInWithPopup(auth, provider);
       atualizarStatusUser();
       carregarDados();
+=======
+  } catch (e) {
+    // Se popup for bloqueado ou cancelado, usa redirect
+    if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/cancelled-popup-request') {
+      try {
+        const provider = new GoogleAuthProvider();
+        const u = auth.currentUser;
+        if (u && u.isAnonymous) {
+          // promove anônimo com redirect
+          const { linkWithRedirect } = await import("https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js");
+          await linkWithRedirect(u, provider);
+        } else {
+          const { signInWithRedirect } = await import("https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js");
+          await signInWithRedirect(auth, provider);
+        }
+        return; // o fluxo continua após o redirect
+      } catch (e2) {
+        console.error('Erro no fallback redirect:', e2);
+        alert('Não foi possível entrar com Google (redirect).');
+      }
+    } else if (e?.code === 'auth/credential-already-in-use') {
+      // Conta já existe → apenas signIn
+      try {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+      } catch (e3) {
+        console.error('Erro no signIn após credential-already-in-use:', e3);
+        alert('Não foi possível entrar com Google.');
+      }
+>>>>>>> de1f708b7fbdfd80647d4215db47534b8d06f8b1
     } else {
       console.error("Erro no Google auth:", e);
       alert("Não foi possível entrar com Google.");
     }
+  } finally {
+    loginEmProgresso = false;
+    atualizarStatusUser();
+    carregarDados();
   }
 }
 
