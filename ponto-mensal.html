@@ -72,12 +72,21 @@
           </div>
         </div>
 
-        <div class="mb-3">
-          <select id="tipo-agrupamento" class="form-select">
-            <option value="mes">Agrupar por mês</option>
-            <option value="ano">Agrupar por ano</option>
-            <option value="todos">Mostrar tudo</option>
-          </select>
+        <div class="d-flex justify-content-center gap-3 mb-3 menu-agrupamento">
+          <button class="btn btn-light filtro-btn active" data-tipo="mes">
+            <i class="bi bi-calendar3"></i>
+            <div>Mensal</div>
+          </button>
+
+          <button class="btn btn-light filtro-btn" data-tipo="ano">
+            <i class="bi bi-calendar-event"></i>
+            <div>Anual</div>
+          </button>
+
+          <button class="btn btn-light filtro-btn" data-tipo="todos">
+            <i class="bi bi-collection"></i>
+            <div>Total</div>
+          </button>
         </div>
 
         <div class="accordion" id="accordion-pontos"></div>

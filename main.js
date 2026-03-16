@@ -840,6 +840,7 @@ function mostrarResultadoDoDia(horas, resultado) {
    ACCORDION DINÂMICO
 ======================= */
 let cachePontos = [];
+let tipoAgrupamento = "mes";
 
 function limparAccordion() {
   const container = document.getElementById("accordion-pontos");
@@ -848,11 +849,9 @@ function limparAccordion() {
 
 function renderizarPontos(pontos) {
   const container = document.getElementById("accordion-pontos");
-  const select = document.getElementById("tipo-agrupamento");
+  if (!container) return;
 
-  if (!container || !select) return;
-
-  const tipo = select.value;
+  const tipo = tipoAgrupamento;
   container.innerHTML = "";
 
   if (!pontos.length) {
@@ -975,8 +974,15 @@ authReady.then(() => {
   document.getElementById("btn-resultado-entrada")?.addEventListener("click", salvarEntrada);
   document.getElementById("btn-resultado-saida")?.addEventListener("click", salvarSaida);
 
-  document.getElementById("tipo-agrupamento")?.addEventListener("change", () => {
-    renderizarPontos(cachePontos);
+  document.querySelectorAll(".filtro-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".filtro-btn")
+        .forEach(b => b.classList.remove("active"));
+
+      btn.classList.add("active");
+      tipoAgrupamento = btn.dataset.tipo;
+      renderizarPontos(cachePontos);
+    });
   });
 
   document.getElementById("btn-teste-notificacao")?.addEventListener("click", async () => {
