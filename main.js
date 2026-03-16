@@ -841,6 +841,7 @@ function mostrarResultadoDoDia(horas, resultado) {
 ======================= */
 let cachePontos = [];
 let tipoAgrupamento = "mes";
+let ordemLista = "desc"; 
 
 function limparAccordion() {
   const container = document.getElementById("accordion-pontos");
@@ -884,6 +885,11 @@ function renderizarPontos(pontos) {
     registros.sort((a, b) => {
       const da = docIdFromDia(a.dia);
       const db = docIdFromDia(b.dia);
+
+      if (ordemLista === "desc") {
+        return db.localeCompare(da);
+      }
+
       return da.localeCompare(db);
     });
 
@@ -1001,4 +1007,26 @@ authReady.then(() => {
   } else {
     resumeScheduledNotificationIfAny();
   }
+
+  const ordenarBtn = document.getElementById("ordenar-btn");
+
+  ordenarBtn?.addEventListener("click", () => {
+
+    if (ordemLista === "desc") {
+      ordemLista = "asc";
+      ordenarBtn.innerHTML = `
+        <i class="bi bi-sort-up"></i>
+        Mais antigo
+      `;
+    } else {
+      ordemLista = "desc";
+      ordenarBtn.innerHTML = `
+        <i class="bi bi-sort-down"></i>
+        Mais recente
+      `;
+    }
+
+    renderizarPontos(cachePontos);
+    
+  });
 });
