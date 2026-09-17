@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE = 'meuapp-cache-v7'; // <-- troque quando mudar a lista
+const CACHE = 'meuapp-cache-v8'; // <-- troque quando mudar a lista
 
 const filesToCache = [
   './',

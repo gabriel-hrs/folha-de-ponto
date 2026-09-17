@@ -4,7 +4,7 @@ service cloud.firestore {
     match /pontos/{docId} {
       // READ: usa resource.data (doc existente)
       allow read: if request.auth != null
-                  && resource.data.ownerUid == request.auth.uid;
+          && (resource == null || resource.data.ownerUid == request.auth.uid);
 
       // WRITE: aceita se o ownerUid bater em request.resource (novo estado)
       //        OU em resource (estado antigo). Cobre create/update/merge.

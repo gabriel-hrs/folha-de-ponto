@@ -1,6 +1,7 @@
 import {
   db, auth, authReady,
-  GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut
+  GoogleAuthProvider, signInWithPopup, linkWithPopup,
+  signInWithRedirect, linkWithRedirect, signOut
 } from "./firebase-config.js";
 
 import {
@@ -145,6 +146,11 @@ function atualizarUIConta(u) {
   const mEmail = document.getElementById("modal-user-email");
   const boxLog = document.getElementById("actions-logged");
   const boxAnon = document.getElementById("actions-anon");
+  const avisoLogin = document.getElementById("aviso-login");
+
+  if (avisoLogin) {
+    avisoLogin.classList.toggle("d-none", Boolean(u && !u.isAnonymous));
+  }
 
   if (!u) {
     if (mIcon) mIcon.className = "bi bi-person fs-2";
@@ -330,42 +336,29 @@ async function entrarComGoogle() {
 
   try {
     const provider = new GoogleAuthProvider();
-    // opcional: idioma
     auth.useDeviceLanguage && auth.useDeviceLanguage();
 
     const u = auth.currentUser;
 
-    // Tenta popup primeiro (melhor UX)
-    if (u && u.isAnonymous) {
-      await linkWithPopup(u, provider);
-    } else {
-      await signInWithPopup(auth, provider);
-    }
+    if (u && u.isAnonymous) await linkWithPopup(u, provider);
+    else await signInWithPopup(auth, provider);
   } catch (e) {
-    // Se popup for bloqueado ou cancelado, usa redirect
-    if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/cancelled-popup-request') {
+    if (e?.code === "auth/popup-blocked" || e?.code === "auth/cancelled-popup-request") {
       try {
         const provider = new GoogleAuthProvider();
         const u = auth.currentUser;
-        if (u && u.isAnonymous) {
-          // promove anônimo com redirect
-          const { linkWithRedirect } = await import("https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js");
-          await linkWithRedirect(u, provider);
-        } else {
-          const { signInWithRedirect } = await import("https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js");
-          await signInWithRedirect(auth, provider);
-        }
-        return; // o fluxo continua após o redirect
+        if (u && u.isAnonymous) await linkWithRedirect(u, provider);
+        else await signInWithRedirect(auth, provider);
+        return;
       } catch (e2) {
-        console.error('Erro no fallback redirect:', e2);
-        mostrarAviso("Não foi possível entrar com Google (redirect).", "erro");
+        console.error("Erro no fallback redirect:", e2);
+        mostrarAviso("Não foi possível entrar com Google.", "erro");
       }
     } else if (e?.code === 'auth/credential-already-in-use') {
-      // Conta já existe → apenas signIn
       try {
         await signInWithPopup(auth, new GoogleAuthProvider());
       } catch (e3) {
-        console.error('Erro no signIn após credential-already-in-use:', e3);
+        console.error("Erro no signIn após credential-already-in-use:", e3);
         mostrarAviso("Não foi possível entrar com Google.", "erro");
       }
     } else {
@@ -430,6 +423,19 @@ function parseDiaParts(dia) {
   return { dd, mm, yyyy };
 }
 
+async function buscarRegistroDoDia(user, dia) {
+  const registrosQuery = query(
+    collection(db, "pontos"),
+    where("ownerUid", "==", user.uid)
+  );
+  const snap = await getDocs(registrosQuery);
+  let registro = null;
+  snap.forEach(item => {
+    if (item.data().dia === dia) registro = item.data();
+  });
+  return registro;
+}
+
 /* =======================
    NOTIFICAÇÃO
 ======================= */
@@ -449,7 +455,6 @@ async function showPWANotification(title, body) {
     const reg = await navigator.serviceWorker?.ready;
     if (reg?.showNotification) {
       await reg.showNotification(title, {
-        body,
         icon: "./icon-192x192.png",
         badge: "./icon-192x192.png",
         vibrate: [200, 100, 200]
@@ -475,8 +480,7 @@ function addMinutes(date, minutes) {
 let exitTimerId = null;
 
 async function scheduleExitNotification(diaDDMMYYYY, entradaHHMM) {
-  const entradaDate = parseDiaHoraToDate(diaDDMMYYYY, entradaHHMM);
-  const saidaDate = addMinutes(entradaDate, 9 * 60 + minutosExtrasDoDia(diaDDMMYYYY));
+    const dados = await buscarRegistroDoDia(user, dia);
 
   localStorage.setItem("nextExitAt", String(saidaDate.getTime()));
   localStorage.setItem("nextExitLabel", saidaDate.toTimeString().slice(0, 5));
@@ -505,7 +509,7 @@ async function resumeScheduledNotificationIfAny() {
   const delay = ts - Date.now();
 
   if (delay <= 0) {
-    await showPWANotification("Hora de sair!", `Seu horário de saída era às ${label}`);
+  const dados = await buscarRegistroDoDia(user, dia);
     localStorage.removeItem("nextExitAt");
     localStorage.removeItem("nextExitLabel");
     return;

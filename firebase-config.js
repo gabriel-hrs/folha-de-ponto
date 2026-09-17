@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInAnonymously, setPersistence, browserLocalPersistence,
-  GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut
+  GoogleAuthProvider, signInWithPopup, linkWithPopup, signInWithRedirect, linkWithRedirect, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
@@ -32,4 +32,7 @@ const authReady = new Promise((resolve) => {
   });
 });
 
-export { app, db, auth, authReady, GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut };
+export {
+  app, db, auth, authReady, GoogleAuthProvider,
+  signInWithPopup, linkWithPopup, signInWithRedirect, linkWithRedirect, signOut
+};
