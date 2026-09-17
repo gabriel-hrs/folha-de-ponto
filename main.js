@@ -32,6 +32,13 @@ function alternarTema() {
 
 aplicarTemaSalvo();
 
+function ocultarLoader() {
+  const loader = document.getElementById("app-loader");
+  if (!loader) return;
+  loader.classList.add("app-loader-saindo");
+  setTimeout(() => loader.remove(), 220);
+}
+
 function mostrarAviso(mensagem, tipo = "info", duracao = 4500) {
   let container = document.getElementById("avisos-app");
   if (!container) {
@@ -828,6 +835,7 @@ async function carregarDados() {
 ======================= */
 authReady.then(() => {
   atualizarStatusUser();
+  ocultarLoader();
 
   document.getElementById("theme-toggle")?.addEventListener("click", alternarTema);
 

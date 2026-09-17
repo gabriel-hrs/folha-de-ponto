@@ -69,6 +69,41 @@ body {
     background: var(--app-bg);
     color: var(--app-text);
     transition: background-color .2s ease, color .2s ease;
+    padding-bottom: 6.5rem;
+    animation: pagina-entrando .42s cubic-bezier(.22, .61, .36, 1) both;
+}
+
+.app-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: grid;
+    place-items: center;
+    background: var(--app-bg);
+    color: var(--app-text);
+    transition: opacity .22s ease, visibility .22s ease;
+}
+
+.app-loader-conteudo {
+    display: grid;
+    justify-items: center;
+    gap: .85rem;
+    font-size: .9rem;
+    color: var(--app-muted);
+}
+
+.app-loader-spinner {
+    width: 2.4rem;
+    height: 2.4rem;
+    border: 3px solid color-mix(in srgb, #0d6efd 22%, transparent);
+    border-top-color: #0d6efd;
+    border-radius: 50%;
+    animation: app-loader-girando .75s linear infinite;
+}
+
+.app-loader-saindo {
+    opacity: 0;
+    visibility: hidden;
 }
 
 body,
@@ -111,7 +146,133 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .fixed-bottom {
+    top: auto;
+    left: 50%;
+    bottom: 1rem;
+    width: min(440px, calc(100% - 2rem));
+    min-height: 64px;
+    padding: .45rem .6rem !important;
+    border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent) !important;
+    border-radius: 999px;
     background-color: var(--app-nav) !important;
+    background: color-mix(in srgb, var(--app-nav) 78%, transparent) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(145%);
+    backdrop-filter: blur(18px) saturate(145%);
+    box-shadow: 0 -10px 30px rgba(8, 12, 20, .16);
+    transform: translateX(-50%);
+    overflow: hidden;
+    animation: menu-entrando .5s cubic-bezier(.22, .61, .36, 1) .08s both;
+}
+
+.fixed-bottom > a,
+.fixed-bottom > span {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 54px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .12rem;
+    padding: .3rem .2rem;
+    border-radius: 999px;
+    color: var(--app-muted) !important;
+    transition: color .2s ease, background-color .2s ease, transform .2s ease;
+}
+
+.fixed-bottom > a:hover {
+    background: rgba(13, 110, 253, .12);
+    color: var(--app-text) !important;
+    transform: translateY(-1px);
+}
+
+.fixed-bottom > a:active,
+.fixed-bottom > span:active {
+    transform: scale(.96);
+}
+
+.fixed-bottom > .active-link {
+    background: #0d6efd;
+    color: #ffffff !important;
+    box-shadow: 0 5px 14px rgba(13, 110, 253, .3);
+}
+
+.fixed-bottom i {
+    font-size: 1.2rem !important;
+    line-height: 1;
+}
+
+.fixed-bottom p {
+    margin: 0 !important;
+    font-size: .68rem;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .fixed-bottom {
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+        border-left: 0 !important;
+        border-radius: 1.1rem 1.1rem 0 0;
+        transform: none;
+        animation-name: menu-entrando-mobile;
+    }
+
+    .fixed-bottom > a,
+    .fixed-bottom > span {
+        min-height: 50px;
+    }
+}
+
+@keyframes pagina-entrando {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes app-loader-girando {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes menu-entrando {
+    from { opacity: 0; transform: translate(-50%, 18px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes menu-entrando-mobile {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+#user-chip,
+.theme-toggle {
+    background-color: var(--app-surface) !important;
+    background: color-mix(in srgb, var(--app-surface) 72%, transparent) !important;
+    border: 1px solid color-mix(in srgb, var(--app-border) 82%, transparent) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 8px 22px rgba(8, 12, 20, .12);
+}
+
+#user-chip:hover,
+.theme-toggle:hover {
+    background: color-mix(in srgb, var(--app-surface) 88%, transparent) !important;
 }
 
 .accordion-item,
@@ -277,6 +438,37 @@ th { background-color: var(--app-table-header); }
     .overflow-scroll-mobile { 
         overflow-y: scroll !important; 
     } 
+
+    .ponto-cabecalho {
+        gap: 1rem;
+    }
+
+    .ponto-cabecalho h1 {
+        font-size: 1.8rem;
+    }
+
+    .controles-ponto {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .menu-agrupamento {
+        width: 100%;
+        justify-content: space-between;
+        gap: .65rem !important;
+    }
+
+    .menu-agrupamento button {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
+        height: 76px;
+    }
+
+    #ordenar-btn {
+        width: 100%;
+        min-height: 48px;
+    }
 }
 
 .menu-agrupamento button {
@@ -294,6 +486,10 @@ th { background-color: var(--app-table-header); }
     font-size: 22px;
 }
 
+.controles-ponto {
+    gap: 1rem;
+}
+
 .filtro-btn.active {
     background: #0d6efd;
     color: white;
@@ -306,3 +502,36 @@ html[data-theme="dark"] .btn-outline-primary {
 }
 
 html[data-theme="dark"] .btn-close { filter: invert(1) grayscale(100%); }
+
+@media (max-width: 768px) {
+    .ponto-cabecalho {
+        gap: 1rem;
+    }
+
+    .ponto-cabecalho h1 {
+        font-size: 1.8rem;
+    }
+
+    .controles-ponto {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .menu-agrupamento {
+        width: 100%;
+        justify-content: space-between;
+        gap: .65rem !important;
+    }
+
+    .menu-agrupamento button {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
+        height: 76px;
+    }
+
+    #ordenar-btn {
+        width: 100%;
+        min-height: 48px;
+    }
+}
