@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE = 'meuapp-cache-v14'; // <-- troque quando mudar a lista
+const CACHE = 'meuapp-cache-v15'; // <-- troque quando mudar a lista
 
 const filesToCache = [
   './',
@@ -86,10 +86,14 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil((async () => {
     const allClients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+    const targetUrl = event.action === 'registrar-entrada'
+      ? './index.html?acao=registrar-entrada'
+      : './index.html';
     if (allClients.length > 0) {
-      allClients[0].focus();
+      await allClients[0].navigate(targetUrl);
+      await allClients[0].focus();
     } else {
-      await self.clients.openWindow('./'); // abre a raiz do app
+      await self.clients.openWindow(targetUrl);
     }
   })());
 });

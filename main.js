@@ -205,6 +205,15 @@ const minutosExtrasPadraoPorAno = {
 };
 
 let minutosExtrasPorAno = { ...minutosExtrasPadraoPorAno };
+let localTrabalho = {
+  ativo: false,
+  latitude: "",
+  longitude: "",
+  raioMetros: 150,
+  inicioManha: "05:00",
+  fimManha: "12:00"
+};
+let localizacaoWatchId = null;
 
 async function carregarConfiguracao() {
   const user = auth.currentUser;
@@ -213,6 +222,15 @@ async function carregarConfiguracao() {
   const snap = await getDoc(doc(db, "configuracoes", user.uid));
   if (snap.exists()) {
     const configuracao = snap.data().minutosExtrasPorAno;
+    const localSalvo = snap.data().localTrabalho;
+    localTrabalho = {
+      ativo: Boolean(localSalvo?.ativo),
+      latitude: localSalvo?.latitude ?? "",
+      longitude: localSalvo?.longitude ?? "",
+      raioMetros: Number(localSalvo?.raioMetros) || 150,
+      inicioManha: localSalvo?.inicioManha || "05:00",
+      fimManha: localSalvo?.fimManha || "12:00"
+    };
     if (configuracao && typeof configuracao === "object") {
       minutosExtrasPorAno = { ...minutosExtrasPadraoPorAno, ...configuracao };
       return;
@@ -220,6 +238,14 @@ async function carregarConfiguracao() {
   }
 
   minutosExtrasPorAno = { ...minutosExtrasPadraoPorAno };
+  localTrabalho = {
+    ativo: false,
+    latitude: "",
+    longitude: "",
+    raioMetros: 150,
+    inicioManha: "05:00",
+    fimManha: "12:00"
+  };
 }
 
 function renderizarConfiguracao() {
@@ -251,6 +277,27 @@ async function salvarConfiguracao() {
   const anos = [...document.querySelectorAll(".config-ano")];
   const minutos = [...document.querySelectorAll(".config-minutos")];
   const novaConfiguracao = {};
+  const localAtivo = document.getElementById("habilitar-local")?.checked || false;
+  const latitude = document.getElementById("latitude-local")?.value?.trim() || "";
+  const longitude = document.getElementById("longitude-local")?.value?.trim() || "";
+  const raioMetros = Number(document.getElementById("raio-local")?.value || 150);
+  const inicioManha = document.getElementById("inicio-manha")?.value || "05:00";
+  const fimManha = document.getElementById("fim-manha")?.value || "12:00";
+
+  if (localAtivo && (!Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude)) ||
+      Number(latitude) < -90 || Number(latitude) > 90 || Number(longitude) < -180 || Number(longitude) > 180)) {
+    mostrarAviso("Informe uma latitude e longitude válidas ou use sua localização atual.", "aviso");
+    return;
+  }
+
+  if (!Number.isInteger(raioMetros) || raioMetros < 30 || raioMetros > 5000) {
+    mostrarAviso("O raio deve estar entre 30 e 5000 metros.", "aviso");
+    return;
+  }
+
+  if (localAtivo && !(await ensureNotificationPermission())) {
+    mostrarAviso("Permita as notificações para receber o lembrete de entrada.", "aviso");
+  }
 
   for (let i = 0; i < anos.length; i++) {
     const ano = Number(anos[i].value);
@@ -269,7 +316,15 @@ async function salvarConfiguracao() {
   try {
     await setDoc(doc(db, "configuracoes", user.uid), {
       ownerUid: user.uid,
-      minutosExtrasPorAno: novaConfiguracao
+      minutosExtrasPorAno: novaConfiguracao,
+      localTrabalho: {
+        ativo: localAtivo,
+        latitude,
+        longitude,
+        raioMetros,
+        inicioManha,
+        fimManha
+      }
     }, { merge: true });
   } catch (e) {
     console.error("Erro ao salvar configuração:", e);
@@ -278,7 +333,9 @@ async function salvarConfiguracao() {
   }
 
   minutosExtrasPorAno = novaConfiguracao;
+  localTrabalho = { ativo: localAtivo, latitude, longitude, raioMetros, inicioManha, fimManha };
   renderizarConfiguracao();
+  iniciarMonitorLocal();
   mostrarAviso("Configuração salva.", "sucesso");
 }
 
@@ -288,6 +345,109 @@ function minutosExtrasDoDia(diaDDMMYYYY) {
   const padrao = ano >= 2026 ? 18 : 22;
   const minutos = Number(minutosExtrasPorAno[yyyy] ?? padrao);
   return Number.isInteger(minutos) && minutos >= 0 ? minutos : padrao;
+}
+
+function renderizarLocalTrabalho() {
+  const ativo = document.getElementById("habilitar-local");
+  const latitude = document.getElementById("latitude-local");
+  const longitude = document.getElementById("longitude-local");
+  const raio = document.getElementById("raio-local");
+  const inicio = document.getElementById("inicio-manha");
+  const fim = document.getElementById("fim-manha");
+  if (!ativo || !latitude || !longitude || !raio || !inicio || !fim) return;
+
+  ativo.checked = localTrabalho.ativo;
+  latitude.value = localTrabalho.latitude;
+  longitude.value = localTrabalho.longitude;
+  raio.value = localTrabalho.raioMetros;
+  inicio.value = localTrabalho.inicioManha;
+  fim.value = localTrabalho.fimManha;
+}
+
+function usarLocalizacaoAtual() {
+  if (!navigator.geolocation) {
+    mostrarAviso("Seu navegador não oferece geolocalização.", "erro");
+    return;
+  }
+
+  mostrarAviso("Solicitando sua localização...", "info");
+  navigator.geolocation.getCurrentPosition(position => {
+    document.getElementById("latitude-local").value = position.coords.latitude.toFixed(6);
+    document.getElementById("longitude-local").value = position.coords.longitude.toFixed(6);
+    mostrarAviso("Localização preenchida. Salve as configurações para ativá-la.", "sucesso");
+  }, () => {
+    mostrarAviso("Não foi possível obter sua localização. Verifique a permissão do navegador.", "erro");
+  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+}
+
+function distanciaEmMetros(lat1, lon1, lat2, lon2) {
+  const raioTerra = 6371000;
+  const radianos = valor => valor * Math.PI / 180;
+  const dLat = radianos(lat2 - lat1);
+  const dLon = radianos(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(radianos(lat1)) * Math.cos(radianos(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * raioTerra * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function estaNaJanelaDaManha() {
+  const agora = new Date();
+  const minutosAgora = agora.getHours() * 60 + agora.getMinutes();
+  const [inicioHora, inicioMinuto] = localTrabalho.inicioManha.split(":").map(Number);
+  const [fimHora, fimMinuto] = localTrabalho.fimManha.split(":").map(Number);
+  return minutosAgora >= inicioHora * 60 + inicioMinuto && minutosAgora <= fimHora * 60 + fimMinuto;
+}
+
+function dataDeHoje() {
+  const hoje = new Date();
+  return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+}
+
+async function verificarChegadaAoTrabalho(position) {
+  const user = auth.currentUser;
+  if (!user || !localTrabalho.ativo || !estaNaJanelaDaManha()) return;
+
+  const distancia = distanciaEmMetros(
+    position.coords.latitude,
+    position.coords.longitude,
+    Number(localTrabalho.latitude),
+    Number(localTrabalho.longitude)
+  );
+  const chaveAviso = `aviso-entrada-${user.uid}-${dataDeHoje()}`;
+  if (distancia > localTrabalho.raioMetros || localStorage.getItem(chaveAviso)) return;
+
+  const permitido = await ensureNotificationPermission();
+  if (!permitido) return;
+
+  localStorage.setItem(chaveAviso, "1");
+  await showPWANotification(
+    "Você chegou ao trabalho",
+    "Deseja bater o ponto de entrada agora?",
+    { actions: [{ action: "registrar-entrada", title: "Bater entrada" }, { action: "ignorar", title: "Agora não" }] }
+  );
+}
+
+function iniciarMonitorLocal() {
+  if (localizacaoWatchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(localizacaoWatchId);
+    localizacaoWatchId = null;
+  }
+  if (!localTrabalho.ativo || !localTrabalho.latitude || !localTrabalho.longitude || !navigator.geolocation) return;
+  localizacaoWatchId = navigator.geolocation.watchPosition(verificarChegadaAoTrabalho, () => {}, {
+    enableHighAccuracy: false,
+    maximumAge: 120000,
+    timeout: 20000
+  });
+}
+
+async function processarAcaoDeNotificacao() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("acao") !== "registrar-entrada" || !document.getElementById("entrada")) return;
+
+  const agora = new Date();
+  document.getElementById("entrada").value = `${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
+  await salvarEntrada();
+  window.history.replaceState({}, document.title, window.location.pathname);
 }
 
 function calcularHorarioSaida(diaDDMMYYYY, entradaHHMM) {
@@ -468,7 +628,7 @@ async function ensureNotificationPermission() {
   return res === "granted";
 }
 
-async function showPWANotification(title, body) {
+async function showPWANotification(title, body, options = {}) {
   try {
     const ok = await ensureNotificationPermission();
     if (!ok) return;
@@ -476,6 +636,8 @@ async function showPWANotification(title, body) {
     const reg = await navigator.serviceWorker?.ready;
     if (reg?.showNotification) {
       await reg.showNotification(title, {
+        body,
+        ...options,
         icon: "./icon-192x192.png",
         badge: "./icon-192x192.png",
         vibrate: [200, 100, 200]
@@ -501,7 +663,8 @@ function addMinutes(date, minutes) {
 let exitTimerId = null;
 
 async function scheduleExitNotification(diaDDMMYYYY, entradaHHMM) {
-    const dados = await buscarRegistroDoDia(user, dia);
+  const entradaDate = parseDiaHoraToDate(diaDDMMYYYY, entradaHHMM);
+  const saidaDate = addMinutes(entradaDate, 9 * 60 + minutosExtrasDoDia(diaDDMMYYYY));
 
   localStorage.setItem("nextExitAt", String(saidaDate.getTime()));
   localStorage.setItem("nextExitLabel", saidaDate.toTimeString().slice(0, 5));
@@ -530,7 +693,6 @@ async function resumeScheduledNotificationIfAny() {
   const delay = ts - Date.now();
 
   if (delay <= 0) {
-  const dados = await buscarRegistroDoDia(user, dia);
     localStorage.removeItem("nextExitAt");
     localStorage.removeItem("nextExitLabel");
     return;
@@ -844,7 +1006,11 @@ authReady.then(() => {
       console.error("Erro ao carregar configuração:", e);
       mostrarAviso("Não foi possível carregar a configuração. Verifique as regras do Firestore.", "erro", 7000);
     })
-    .finally(renderizarConfiguracao);
+    .finally(() => {
+      renderizarConfiguracao();
+      renderizarLocalTrabalho();
+      iniciarMonitorLocal();
+    });
 
   document.getElementById("btn-login-google")?.addEventListener("click", entrarComGoogle);
   document.getElementById("btn-sair")?.addEventListener("click", sair);
@@ -856,6 +1022,7 @@ authReady.then(() => {
     carregarSaidaDoDia();
   });
   document.getElementById("btn-salvar-configuracao")?.addEventListener("click", salvarConfiguracao);
+  document.getElementById("btn-usar-localizacao")?.addEventListener("click", usarLocalizacaoAtual);
   document.getElementById("btn-adicionar-ano")?.addEventListener("click", () => {
     const container = document.getElementById("configuracao-anos");
     if (!container) return;
@@ -895,6 +1062,9 @@ authReady.then(() => {
 
   carregarEntradaDoDia();
   carregarSaidaDoDia();
+  processarAcaoDeNotificacao().catch(e => {
+    console.error("Erro ao processar ação da notificação:", e);
+  });
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready
