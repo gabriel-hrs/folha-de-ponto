@@ -120,10 +120,12 @@ function atualizarStatusUser() {
   const u = auth.currentUser;
 
   const icon = document.getElementById("user-icon");
+  const avatar = document.getElementById("user-avatar");
   const label = document.getElementById("user-label");
 
   if (!u) {
     if (icon) icon.className = "bi bi-person fs-5";
+    avatar?.classList.add("d-none");
     if (label) label.textContent = "Carregando...";
     atualizarUIConta(null);
     return;
@@ -131,10 +133,22 @@ function atualizarStatusUser() {
 
   if (u.isAnonymous) {
     if (icon) icon.className = "bi bi-person fs-5";
+    avatar?.classList.add("d-none");
     if (label) label.textContent = "Convidado";
   } else {
-    if (icon) icon.className = "bi bi-person-check fs-5";
-    if (label) label.textContent = u.displayName || u.email || "Conta";
+    const fotoGoogle = u.photoURL || u.providerData?.find(provider => provider.photoURL)?.photoURL;
+    const nomeGoogle = u.displayName || u.providerData?.find(provider => provider.displayName)?.displayName;
+
+    if (fotoGoogle && avatar) {
+      avatar.src = fotoGoogle;
+      avatar.alt = nomeGoogle || "Foto do usuário";
+      avatar.classList.remove("d-none");
+      if (icon) icon.className = "bi bi-person-check fs-5 d-none";
+    } else {
+      avatar?.classList.add("d-none");
+      if (icon) icon.className = "bi bi-person-check fs-5";
+    }
+    if (label) label.textContent = nomeGoogle || u.email || "Conta";
   }
 
   atualizarUIConta(u);

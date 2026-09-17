@@ -11,6 +11,13 @@
     line-height: 1; 
 }
 
+.user-avatar {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
 .modal-content { 
     box-shadow: 0 10px 30px rgba(0,0,0,.12); 
 }
