@@ -70,6 +70,48 @@ function mostrarAviso(mensagem, tipo = "info", duracao = 4500) {
   setTimeout(fechar, duracao);
 }
 
+function confirmarAcao(titulo, mensagem) {
+  return new Promise(resolve => {
+    const overlay = document.createElement("div");
+    overlay.className = "confirmacao-app";
+    overlay.innerHTML = `
+      <div class="confirmacao-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmacao-titulo">
+        <div class="confirmacao-icone"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        <div class="confirmacao-conteudo">
+          <h2 id="confirmacao-titulo"></h2>
+          <p></p>
+        </div>
+        <div class="confirmacao-acoes">
+          <button type="button" class="btn btn-light confirmacao-cancelar">Cancelar</button>
+          <button type="button" class="btn btn-primary confirmacao-confirmar">Confirmar</button>
+        </div>
+      </div>
+    `;
+    overlay.querySelector("h2").textContent = titulo;
+    overlay.querySelector("p").textContent = mensagem;
+
+    function aoPressionarTecla(event) {
+      if (event.key === "Escape") finalizar(false);
+    }
+
+    const finalizar = resultado => {
+      document.removeEventListener("keydown", aoPressionarTecla);
+      overlay.remove();
+      resolve(resultado);
+    };
+
+    overlay.querySelector(".confirmacao-cancelar").addEventListener("click", () => finalizar(false));
+    overlay.querySelector(".confirmacao-confirmar").addEventListener("click", () => finalizar(true));
+    overlay.addEventListener("click", event => {
+      if (event.target === overlay) finalizar(false);
+    });
+    document.addEventListener("keydown", aoPressionarTecla);
+
+    document.body.appendChild(overlay);
+    overlay.querySelector(".confirmacao-confirmar").focus();
+  });
+}
+
 /* =======================
    UI: CONTA
 ======================= */
@@ -252,6 +294,33 @@ async function carregarEntradaDoDia() {
   } catch (e) {
     console.error("Erro ao carregar entrada do dia:", e);
     resumo.textContent = "Não foi possível carregar a entrada deste dia.";
+  }
+}
+
+async function carregarSaidaDoDia() {
+  const campoSaida = document.getElementById("saida");
+  const resumo = document.getElementById("resumo-saida");
+  if (!campoSaida || !resumo) return;
+
+  const user = auth.currentUser;
+  const dia = lerDiaNormalizado();
+  if (!user || !dia) return;
+
+  try {
+    const snap = await getDoc(doc(db, "pontos", docIdFromDia(dia)));
+    const dados = snap.exists() ? snap.data() : null;
+
+    if (!dados || dados.ownerUid !== user.uid || !dados.saida) {
+      campoSaida.value = "";
+      resumo.textContent = "Nenhuma saída salva para este dia.";
+      return;
+    }
+
+    campoSaida.value = dados.saida;
+    resumo.textContent = `Saída salva às ${dados.saida}. Salvar outro horário pedirá confirmação.`;
+  } catch (e) {
+    console.error("Erro ao carregar saída do dia:", e);
+    resumo.textContent = "Não foi possível carregar a saída deste dia.";
   }
 }
 
@@ -468,6 +537,16 @@ async function salvarEntrada() {
   await carregarConfiguracao();
 
   const docRef = doc(db, "pontos", docIdFromDia(dia));
+  const registroAtual = await getDoc(docRef);
+  const entradaAtual = registroAtual.exists() ? registroAtual.data().entrada : null;
+
+  if (entradaAtual) {
+    const confirmou = await confirmarAcao(
+      "Sobrescrever entrada?",
+      `Já existe uma entrada registrada às ${entradaAtual}. Deseja substituir esse horário?`
+    );
+    if (!confirmou) return;
+  }
 
   const payload = { ownerUid: user.uid, dia, entrada };
   await setDoc(docRef, payload, { merge: true });
@@ -508,6 +587,14 @@ async function salvarSaida() {
     return;
   }
 
+  if (dados.saida) {
+    const confirmou = await confirmarAcao(
+      "Sobrescrever saída?",
+      `Já existe uma saída registrada às ${dados.saida}. Deseja substituir esse horário?`
+    );
+    if (!confirmou) return;
+  }
+
   const novos = { ...dados, saida };
 
   if (novos.entrada) {
@@ -533,6 +620,7 @@ async function salvarSaida() {
   novos.dia = dia;
 
   await setDoc(docRef, novos, { merge: true });
+  await carregarSaidaDoDia();
   carregarDados().catch(e => {
     console.error("Erro ao carregar pontos:", e);
   });
@@ -724,7 +812,10 @@ authReady.then(() => {
 
   document.getElementById("btn-resultado-entrada")?.addEventListener("click", salvarEntrada);
   document.getElementById("btn-resultado-saida")?.addEventListener("click", salvarSaida);
-  document.getElementById("dia")?.addEventListener("change", carregarEntradaDoDia);
+  document.getElementById("dia")?.addEventListener("change", () => {
+    carregarEntradaDoDia();
+    carregarSaidaDoDia();
+  });
   document.getElementById("btn-salvar-configuracao")?.addEventListener("click", salvarConfiguracao);
   document.getElementById("btn-adicionar-ano")?.addEventListener("click", () => {
     const container = document.getElementById("configuracao-anos");
@@ -764,6 +855,7 @@ authReady.then(() => {
   });
 
   carregarEntradaDoDia();
+  carregarSaidaDoDia();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready

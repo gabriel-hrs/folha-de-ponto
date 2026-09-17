@@ -178,6 +178,58 @@ table {
 .aviso-fechar:hover { color: var(--app-text); }
 .aviso-saindo { animation: aviso-saindo .18s ease-in forwards; }
 
+.confirmacao-app {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(8, 12, 20, .64);
+}
+
+.confirmacao-dialog {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .85rem 1rem;
+    width: min(440px, 100%);
+    padding: 1.25rem;
+    border: 1px solid var(--app-border);
+    border-radius: .9rem;
+    background: var(--app-surface);
+    color: var(--app-text);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, .3);
+    animation: aviso-entrando .18s ease-out;
+}
+
+.confirmacao-icone {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(255, 193, 7, .16);
+    color: #b58100;
+}
+
+.confirmacao-conteudo h2 {
+    margin: 0 0 .35rem;
+    font-size: 1.1rem;
+}
+
+.confirmacao-conteudo p {
+    margin: 0;
+    color: var(--app-muted);
+}
+
+.confirmacao-acoes {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: .5rem;
+    margin-top: .35rem;
+}
+
 @keyframes aviso-entrando {
     from { opacity: 0; transform: translateY(-.5rem); }
     to { opacity: 1; transform: translateY(0); }
