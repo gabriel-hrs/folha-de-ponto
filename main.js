@@ -221,6 +221,40 @@ function minutosExtrasDoDia(diaDDMMYYYY) {
   return Number.isInteger(minutos) && minutos >= 0 ? minutos : padrao;
 }
 
+function calcularHorarioSaida(diaDDMMYYYY, entradaHHMM) {
+  const entradaDate = parseDiaHoraToDate(diaDDMMYYYY, entradaHHMM);
+  const saidaDate = addMinutes(entradaDate, 9 * 60 + minutosExtrasDoDia(diaDDMMYYYY));
+  return saidaDate.toTimeString().slice(0, 5);
+}
+
+async function carregarEntradaDoDia() {
+  const campoEntrada = document.getElementById("entrada");
+  const resumo = document.getElementById("resumo-entrada");
+  if (!campoEntrada || !resumo) return;
+
+  const user = auth.currentUser;
+  const dia = lerDiaNormalizado();
+  if (!user || !dia) return;
+
+  try {
+    await carregarConfiguracao();
+    const snap = await getDoc(doc(db, "pontos", docIdFromDia(dia)));
+    const dados = snap.exists() ? snap.data() : null;
+
+    if (!dados || dados.ownerUid !== user.uid || !dados.entrada) {
+      campoEntrada.value = "";
+      resumo.textContent = "Nenhuma entrada salva para este dia.";
+      return;
+    }
+
+    campoEntrada.value = dados.entrada;
+    resumo.textContent = `Entrada salva às ${dados.entrada}. Saída prevista: ${calcularHorarioSaida(dia, dados.entrada)}.`;
+  } catch (e) {
+    console.error("Erro ao carregar entrada do dia:", e);
+    resumo.textContent = "Não foi possível carregar a entrada deste dia.";
+  }
+}
+
 async function entrarComGoogle() {
   if (loginEmProgresso) return;
   loginEmProgresso = true;
@@ -438,13 +472,9 @@ async function salvarEntrada() {
   const payload = { ownerUid: user.uid, dia, entrada };
   await setDoc(docRef, payload, { merge: true });
 
-  let [h, m] = entrada.split(":").map(Number);
-  m += minutosExtrasDoDia(dia);
-  h += 9 + Math.floor(m / 60);
-  m = m % 60;
-
-  const saidaPrev = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const saidaPrev = calcularHorarioSaida(dia, entrada);
   mostrarAviso(`Seu horário de saída será às ${saidaPrev}`, "sucesso");
+  await carregarEntradaDoDia();
 
   await scheduleExitNotification(dia, entrada);
   carregarDados().catch(e => {
@@ -694,6 +724,7 @@ authReady.then(() => {
 
   document.getElementById("btn-resultado-entrada")?.addEventListener("click", salvarEntrada);
   document.getElementById("btn-resultado-saida")?.addEventListener("click", salvarSaida);
+  document.getElementById("dia")?.addEventListener("change", carregarEntradaDoDia);
   document.getElementById("btn-salvar-configuracao")?.addEventListener("click", salvarConfiguracao);
   document.getElementById("btn-adicionar-ano")?.addEventListener("click", () => {
     const container = document.getElementById("configuracao-anos");
@@ -731,6 +762,8 @@ authReady.then(() => {
   carregarDados().catch(e => {
     console.error("Erro ao carregar pontos:", e);
   });
+
+  carregarEntradaDoDia();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready
