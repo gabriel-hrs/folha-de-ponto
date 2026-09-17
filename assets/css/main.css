@@ -15,6 +15,179 @@
     box-shadow: 0 10px 30px rgba(0,0,0,.12); 
 }
 
+:root {
+    color-scheme: light;
+    --app-bg: #f7f9fc;
+    --app-surface: #ffffff;
+    --app-text: #1f2937;
+    --app-muted: #6b7280;
+    --app-border: #dee2e6;
+    --app-nav: #ffffff;
+    --app-table-header: #f8f9fa;
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+    --app-bg: #151922;
+    --app-surface: #202633;
+    --app-text: #edf2f7;
+    --app-muted: #aab4c3;
+    --app-border: #3a4352;
+    --app-nav: #1c2330;
+    --app-table-header: #293241;
+}
+
+html[data-theme="dark"] .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: #ffffff;
+    --bs-table-border-color: var(--app-border);
+    background-color: transparent !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="dark"] .table > :not(caption) > * > * {
+    background-color: transparent !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="dark"] .table .text-success {
+    color: #54d68a !important;
+}
+
+html[data-theme="dark"] .table .text-danger {
+    color: #ff6b78 !important;
+}
+
+body {
+    background: var(--app-bg);
+    color: var(--app-text);
+    transition: background-color .2s ease, color .2s ease;
+}
+
+body,
+.modal-content,
+.form-control,
+.btn-light,
+.bg-light,
+table,
+th,
+td {
+    border-color: var(--app-border) !important;
+}
+
+.text-dark,
+.form-label,
+th,
+td,
+.modal-title,
+.modal-body,
+.modal-footer,
+h1, h2, h3, h4, h5, h6 {
+    color: var(--app-text) !important;
+}
+
+.text-muted { color: var(--app-muted) !important; }
+
+.bg-light,
+.modal-content,
+.btn-light,
+.form-control {
+    background-color: var(--app-surface) !important;
+    color: var(--app-text) !important;
+}
+
+.form-control::placeholder { color: var(--app-muted); }
+
+.form-control:focus {
+    background-color: var(--app-surface);
+    color: var(--app-text);
+}
+
+.fixed-bottom {
+    background-color: var(--app-nav) !important;
+}
+
+.accordion-item,
+.accordion-button,
+.accordion-body,
+table {
+    background-color: var(--app-surface) !important;
+    color: var(--app-text) !important;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: var(--app-table-header) !important;
+    color: var(--app-text) !important;
+}
+
+.border-top { border-color: var(--app-border) !important; }
+
+.modal-content { box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+
+.theme-toggle {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avisos-app {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1080;
+    display: grid;
+    gap: .75rem;
+    width: min(380px, calc(100vw - 2rem));
+    pointer-events: none;
+}
+
+.aviso-app {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    gap: .75rem;
+    padding: .9rem 1rem;
+    border: 1px solid var(--app-border);
+    border-left: 4px solid #0d6efd;
+    border-radius: .75rem;
+    background: var(--app-surface);
+    color: var(--app-text);
+    box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .2);
+    pointer-events: auto;
+    animation: aviso-entrando .18s ease-out;
+}
+
+.aviso-app > i { color: #0d6efd; }
+.aviso-sucesso { border-left-color: #198754; }
+.aviso-sucesso > i { color: #198754; }
+.aviso-aviso { border-left-color: #ffc107; }
+.aviso-aviso > i { color: #b58100; }
+.aviso-erro { border-left-color: #dc3545; }
+.aviso-erro > i { color: #dc3545; }
+
+.aviso-fechar {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--app-muted);
+    line-height: 1;
+}
+
+.aviso-fechar:hover { color: var(--app-text); }
+.aviso-saindo { animation: aviso-saindo .18s ease-in forwards; }
+
+@keyframes aviso-entrando {
+    from { opacity: 0; transform: translateY(-.5rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes aviso-saindo {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-.5rem); }
+}
+
 table { 
     width: 100%; 
     border-collapse: collapse; 
@@ -24,7 +197,7 @@ table, th, td { border: 1px solid #ddd; }
 
 th, td { padding: 10px; text-align: left; }
 
-th { background-color: #f8f9fa; }
+th { background-color: var(--app-table-header); }
 
 @media (max-width: 768px) { 
     .overflow-scroll-mobile { 
@@ -51,3 +224,11 @@ th { background-color: #f8f9fa; }
     background: #0d6efd;
     color: white;
 }
+
+html[data-theme="dark"] .btn-outline-secondary,
+html[data-theme="dark"] .btn-outline-primary {
+    color: #8ab4ff;
+    border-color: #5f86c9;
+}
+
+html[data-theme="dark"] .btn-close { filter: invert(1) grayscale(100%); }

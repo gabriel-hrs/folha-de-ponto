@@ -7,6 +7,69 @@ import {
   doc, getDoc, setDoc, collection, getDocs, query, where
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
+function aplicarTemaSalvo() {
+  const tema = localStorage.getItem("tema") || "light";
+  document.documentElement.dataset.theme = tema;
+  atualizarBotaoTema(tema);
+}
+
+function atualizarBotaoTema(tema) {
+  const botao = document.getElementById("theme-toggle");
+  if (!botao) return;
+  const escuro = tema === "dark";
+  botao.innerHTML = `<i class="bi ${escuro ? "bi-sun" : "bi-moon-stars"}"></i>`;
+  botao.setAttribute("aria-label", escuro ? "Ativar tema claro" : "Ativar tema escuro");
+  botao.title = escuro ? "Tema claro" : "Tema escuro";
+}
+
+function alternarTema() {
+  const tema = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = tema;
+  localStorage.setItem("tema", tema);
+  atualizarBotaoTema(tema);
+}
+
+aplicarTemaSalvo();
+
+function mostrarAviso(mensagem, tipo = "info", duracao = 4500) {
+  let container = document.getElementById("avisos-app");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "avisos-app";
+    container.className = "avisos-app";
+    container.setAttribute("aria-live", "polite");
+    document.body.appendChild(container);
+  }
+
+  const icones = {
+    sucesso: "bi-check-circle-fill",
+    erro: "bi-exclamation-triangle-fill",
+    aviso: "bi-exclamation-circle-fill",
+    info: "bi-info-circle-fill"
+  };
+
+  const aviso = document.createElement("div");
+  aviso.className = `aviso-app aviso-${tipo}`;
+  aviso.setAttribute("role", "alert");
+  aviso.innerHTML = `
+    <i class="bi ${icones[tipo] || icones.info}" aria-hidden="true"></i>
+    <span></span>
+    <button type="button" class="aviso-fechar" aria-label="Fechar aviso">
+      <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
+  `;
+  aviso.querySelector("span").textContent = mensagem;
+
+  const fechar = () => {
+    aviso.classList.add("aviso-saindo");
+    setTimeout(() => aviso.remove(), 180);
+  };
+
+  aviso.querySelector(".aviso-fechar").addEventListener("click", fechar);
+  container.appendChild(aviso);
+  setTimeout(fechar, duracao);
+}
+
 /* =======================
    UI: CONTA
 ======================= */
@@ -67,6 +130,97 @@ function atualizarUIConta(u) {
 
 let loginEmProgresso = false;
 
+const minutosExtrasPadraoPorAno = {
+  2025: 22,
+  2026: 18
+};
+
+let minutosExtrasPorAno = { ...minutosExtrasPadraoPorAno };
+
+async function carregarConfiguracao() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const snap = await getDoc(doc(db, "configuracoes", user.uid));
+  if (snap.exists()) {
+    const configuracao = snap.data().minutosExtrasPorAno;
+    if (configuracao && typeof configuracao === "object") {
+      minutosExtrasPorAno = { ...minutosExtrasPadraoPorAno, ...configuracao };
+      return;
+    }
+  }
+
+  minutosExtrasPorAno = { ...minutosExtrasPadraoPorAno };
+}
+
+function renderizarConfiguracao() {
+  const container = document.getElementById("configuracao-anos");
+  if (!container) return;
+
+  const anos = Object.keys(minutosExtrasPorAno).sort();
+  container.innerHTML = anos.map(ano => `
+    <div class="row g-2 mb-2 configuracao-linha">
+      <div class="col-6">
+        <label class="visually-hidden" for="ano-${ano}">Ano</label>
+        <input id="ano-${ano}" class="form-control config-ano" type="number" min="2000" max="2100" value="${ano}">
+      </div>
+      <div class="col-6">
+        <label class="visually-hidden" for="minutos-${ano}">Minutos extras</label>
+        <input id="minutos-${ano}" class="form-control config-minutos" type="number" min="0" max="180" value="${minutosExtrasPorAno[ano]}">
+      </div>
+    </div>
+  `).join("");
+}
+
+async function salvarConfiguracao() {
+  const user = auth.currentUser;
+  if (!user) {
+    mostrarAviso("Autenticando... tente novamente.", "aviso");
+    return;
+  }
+
+  const anos = [...document.querySelectorAll(".config-ano")];
+  const minutos = [...document.querySelectorAll(".config-minutos")];
+  const novaConfiguracao = {};
+
+  for (let i = 0; i < anos.length; i++) {
+    const ano = Number(anos[i].value);
+    const valor = Number(minutos[i].value);
+    if (!Number.isInteger(ano) || ano < 2000 || ano > 2100 || !Number.isInteger(valor) || valor < 0 || valor > 180) {
+      mostrarAviso("Informe anos entre 2000 e 2100 e minutos entre 0 e 180.", "aviso");
+      return;
+    }
+    if (novaConfiguracao[ano] !== undefined) {
+      mostrarAviso("Não repita o mesmo ano.", "aviso");
+      return;
+    }
+    novaConfiguracao[ano] = valor;
+  }
+
+  try {
+    await setDoc(doc(db, "configuracoes", user.uid), {
+      ownerUid: user.uid,
+      minutosExtrasPorAno: novaConfiguracao
+    }, { merge: true });
+  } catch (e) {
+    console.error("Erro ao salvar configuração:", e);
+    mostrarAviso("Não foi possível salvar. Publique as regras do Firestore e tente novamente.", "erro");
+    return;
+  }
+
+  minutosExtrasPorAno = novaConfiguracao;
+  renderizarConfiguracao();
+  mostrarAviso("Configuração salva.", "sucesso");
+}
+
+function minutosExtrasDoDia(diaDDMMYYYY) {
+  const { yyyy } = parseDiaParts(diaDDMMYYYY);
+  const ano = Number(yyyy);
+  const padrao = ano >= 2026 ? 18 : 22;
+  const minutos = Number(minutosExtrasPorAno[yyyy] ?? padrao);
+  return Number.isInteger(minutos) && minutos >= 0 ? minutos : padrao;
+}
+
 async function entrarComGoogle() {
   if (loginEmProgresso) return;
   loginEmProgresso = true;
@@ -101,7 +255,7 @@ async function entrarComGoogle() {
         return; // o fluxo continua após o redirect
       } catch (e2) {
         console.error('Erro no fallback redirect:', e2);
-        alert('Não foi possível entrar com Google (redirect).');
+        mostrarAviso("Não foi possível entrar com Google (redirect).", "erro");
       }
     } else if (e?.code === 'auth/credential-already-in-use') {
       // Conta já existe → apenas signIn
@@ -109,16 +263,18 @@ async function entrarComGoogle() {
         await signInWithPopup(auth, new GoogleAuthProvider());
       } catch (e3) {
         console.error('Erro no signIn após credential-already-in-use:', e3);
-        alert('Não foi possível entrar com Google.');
+        mostrarAviso("Não foi possível entrar com Google.", "erro");
       }
     } else {
       console.error("Erro no Google auth:", e);
-      alert("Não foi possível entrar com Google.");
+      mostrarAviso("Não foi possível entrar com Google.", "erro");
     }
   } finally {
     loginEmProgresso = false;
     atualizarStatusUser();
-    carregarDados();
+    carregarDados().catch(e => {
+      console.error("Erro ao carregar pontos:", e);
+    });
   }
 }
 
@@ -217,7 +373,7 @@ let exitTimerId = null;
 
 async function scheduleExitNotification(diaDDMMYYYY, entradaHHMM) {
   const entradaDate = parseDiaHoraToDate(diaDDMMYYYY, entradaHHMM);
-  const saidaDate = addMinutes(entradaDate, 9 * 60 + 22);
+  const saidaDate = addMinutes(entradaDate, 9 * 60 + minutosExtrasDoDia(diaDDMMYYYY));
 
   localStorage.setItem("nextExitAt", String(saidaDate.getTime()));
   localStorage.setItem("nextExitLabel", saidaDate.toTimeString().slice(0, 5));
@@ -267,13 +423,15 @@ async function resumeScheduledNotificationIfAny() {
 ======================= */
 async function salvarEntrada() {
   const user = auth.currentUser;
-  if (!user) { alert("Autenticando... tente novamente."); return; }
+  if (!user) { mostrarAviso("Autenticando... tente novamente.", "aviso"); return; }
 
   const dia = lerDiaNormalizado();
   const entrada = document.getElementById("entrada")?.value?.trim();
 
-  if (!dia) { alert("Selecione o dia!"); return; }
-  if (!entrada) { alert("Informe o horário de entrada!"); return; }
+  if (!dia) { mostrarAviso("Selecione o dia!", "aviso"); return; }
+  if (!entrada) { mostrarAviso("Informe o horário de entrada!", "aviso"); return; }
+
+  await carregarConfiguracao();
 
   const docRef = doc(db, "pontos", docIdFromDia(dia));
 
@@ -281,38 +439,42 @@ async function salvarEntrada() {
   await setDoc(docRef, payload, { merge: true });
 
   let [h, m] = entrada.split(":").map(Number);
-  m += 22;
+  m += minutosExtrasDoDia(dia);
   h += 9 + Math.floor(m / 60);
   m = m % 60;
 
   const saidaPrev = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  alert(`Seu horário de saída será às ${saidaPrev}`);
+  mostrarAviso(`Seu horário de saída será às ${saidaPrev}`, "sucesso");
 
   await scheduleExitNotification(dia, entrada);
-  carregarDados();
+  carregarDados().catch(e => {
+    console.error("Erro ao carregar pontos:", e);
+  });
 }
 
 async function salvarSaida() {
   const user = auth.currentUser;
-  if (!user) { alert("Autenticando... tente novamente."); return; }
+  if (!user) { mostrarAviso("Autenticando... tente novamente.", "aviso"); return; }
 
   const dia = lerDiaNormalizado();
   const saida = document.getElementById("saida")?.value?.trim();
 
-  if (!dia) { alert("Selecione o dia!"); return; }
-  if (!saida) { alert("Informe o horário de saída!"); return; }
+  if (!dia) { mostrarAviso("Selecione o dia!", "aviso"); return; }
+  if (!saida) { mostrarAviso("Informe o horário de saída!", "aviso"); return; }
+
+  await carregarConfiguracao();
 
   const docRef = doc(db, "pontos", docIdFromDia(dia));
   const snap = await getDoc(docRef);
 
   if (!snap.exists()) {
-    alert("Ainda não há ENTRADA registrada para este dia. Salve a entrada primeiro.");
+    mostrarAviso("Ainda não há ENTRADA registrada para este dia. Salve a entrada primeiro.", "aviso");
     return;
   }
 
   const dados = snap.data();
   if (dados.ownerUid !== user.uid) {
-    alert("Você não tem permissão para alterar este registro.");
+    mostrarAviso("Você não tem permissão para alterar este registro.", "erro");
     return;
   }
 
@@ -323,7 +485,7 @@ async function salvarSaida() {
     const [h2, m2] = saida.split(":").map(Number);
 
     const worked = h2 * 60 + m2 - (h1 * 60 + m1);
-    const expected = 9 * 60 + 22;
+    const expected = 9 * 60 + minutosExtrasDoDia(dia);
     const diff = worked - expected;
 
     const wh = Math.max(0, Math.floor(worked / 60));
@@ -341,7 +503,9 @@ async function salvarSaida() {
   novos.dia = dia;
 
   await setDoc(docRef, novos, { merge: true });
-  carregarDados();
+  carregarDados().catch(e => {
+    console.error("Erro ao carregar pontos:", e);
+  });
 }
 
 function mostrarResultadoDoDia(horas, resultado) {
@@ -368,6 +532,16 @@ let ordemLista = "desc";
 function limparAccordion() {
   const container = document.getElementById("accordion-pontos");
   if (container) container.innerHTML = "";
+}
+
+function formatarNomeGrupo(grupo, tipo) {
+  if (tipo !== "mes") return grupo;
+
+  const [mm, yyyy] = grupo.split("/");
+  const nomeMes = new Intl.DateTimeFormat("pt-BR", { month: "long" })
+    .format(new Date(Number(yyyy), Number(mm) - 1, 1));
+
+  return `${nomeMes.charAt(0).toUpperCase()}${nomeMes.slice(1)}/${yyyy}`;
 }
 
 function renderizarPontos(pontos) {
@@ -425,39 +599,47 @@ function renderizarPontos(pontos) {
       </tr>
     `).join("");
 
-    container.innerHTML += `
-      <div class="accordion-item">
-        <h2 class="accordion-header">
-          <button class="accordion-button ${index !== 0 ? "collapsed" : ""}"
-                  type="button"
-                  data-bs-toggle="collapse"
-                  data-bs-target="#grupo-${index}">
-            ${grupo} (${registros.length})
-          </button>
-        </h2>
+    const tabela = `
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Dia</th>
+              <th>Entrada</th>
+              <th>Saída</th>
+              <th>Horas</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+    `;
 
-        <div id="grupo-${index}" class="accordion-collapse collapse ${index === 0 ? "show" : ""}">
-          <div class="accordion-body">
-            <div class="table-responsive">
-              <table class="table table-sm">
-                <thead>
-                  <tr>
-                    <th>Dia</th>
-                    <th>Entrada</th>
-                    <th>Saída</th>
-                    <th>Horas</th>
-                    <th>Resultado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows}
-                </tbody>
-              </table>
+    if (tipo === "todos") {
+      container.innerHTML += tabela;
+    } else {
+      container.innerHTML += `
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button ${index !== 0 ? "collapsed" : ""}"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#grupo-${index}">
+              ${formatarNomeGrupo(grupo, tipo)}
+            </button>
+          </h2>
+
+          <div id="grupo-${index}" class="accordion-collapse collapse ${index === 0 ? "show" : ""}">
+            <div class="accordion-body">
+              ${tabela}
             </div>
           </div>
         </div>
-      </div>
-    `;
+      `;
+    }
 
     index++;
   });
@@ -473,6 +655,8 @@ async function carregarDados() {
     limparAccordion();
     return;
   }
+
+  await carregarConfiguracao();
 
   const q = query(collection(db, "pontos"), where("ownerUid", "==", user.uid));
   const snap = await getDocs(q);
@@ -496,11 +680,32 @@ async function carregarDados() {
 authReady.then(() => {
   atualizarStatusUser();
 
+  document.getElementById("theme-toggle")?.addEventListener("click", alternarTema);
+
+  carregarConfiguracao()
+    .catch(e => {
+      console.error("Erro ao carregar configuração:", e);
+      mostrarAviso("Não foi possível carregar a configuração. Verifique as regras do Firestore.", "erro", 7000);
+    })
+    .finally(renderizarConfiguracao);
+
   document.getElementById("btn-login-google")?.addEventListener("click", entrarComGoogle);
   document.getElementById("btn-sair")?.addEventListener("click", sair);
 
   document.getElementById("btn-resultado-entrada")?.addEventListener("click", salvarEntrada);
   document.getElementById("btn-resultado-saida")?.addEventListener("click", salvarSaida);
+  document.getElementById("btn-salvar-configuracao")?.addEventListener("click", salvarConfiguracao);
+  document.getElementById("btn-adicionar-ano")?.addEventListener("click", () => {
+    const container = document.getElementById("configuracao-anos");
+    if (!container) return;
+    const ano = new Date().getFullYear() + 1;
+    container.insertAdjacentHTML("beforeend", `
+      <div class="row g-2 mb-2 configuracao-linha">
+        <div class="col-6"><label class="visually-hidden">Ano</label><input class="form-control config-ano" type="number" min="2000" max="2100" value="${ano}"></div>
+        <div class="col-6"><label class="visually-hidden">Minutos extras</label><input class="form-control config-minutos" type="number" min="0" max="180" value="18"></div>
+      </div>
+    `);
+  });
 
   document.querySelectorAll(".filtro-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -515,12 +720,17 @@ authReady.then(() => {
 
   document.getElementById("btn-teste-notificacao")?.addEventListener("click", async () => {
     const ok = await ensureNotificationPermission();
-    if (!ok) return alert("Permita as notificações para testar.");
+    if (!ok) {
+      mostrarAviso("Permita as notificações para testar.", "aviso");
+      return;
+    }
     setTimeout(() => showPWANotification("Teste", "Notificação de teste após 10 segundos."), 10000);
-    alert("Teste agendado para 10 segundos.");
+    mostrarAviso("Teste agendado para 10 segundos.", "info");
   });
 
-  carregarDados();
+  carregarDados().catch(e => {
+    console.error("Erro ao carregar pontos:", e);
+  });
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready

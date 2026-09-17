@@ -1,14 +1,16 @@
 // service-worker.js
-const CACHE = 'meuapp-cache-v5'; // <-- troque quando mudar a lista
+const CACHE = 'meuapp-cache-v7'; // <-- troque quando mudar a lista
 
 const filesToCache = [
   './',
   './index.html',
   './ponto-de-saida.html',
   './ponto-mensal.html',
+  './configuracao.html',
   './manifest.json',
   './main.js',
   './firebase-config.js',
+  './assets/css/main.css',
   './icon-192x192.png',
   './icon-512x512.png',
   // './favicon.ico', // habilite só se o arquivo existir de verdade
