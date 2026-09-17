@@ -495,6 +495,47 @@ th { background-color: var(--app-table-header); }
     color: white;
 }
 
+.saldo-grupo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: .75rem;
+    padding: .7rem .85rem;
+    border: 1px solid var(--app-border);
+    border-radius: .65rem;
+    background: color-mix(in srgb, var(--app-surface) 78%, transparent);
+}
+
+.accordion-button .saldo-cabecalho {
+    margin-left: auto;
+    margin-right: 1.75rem;
+    font-size: .9rem;
+}
+
+.saldo-positivo strong { color: #198754; }
+.saldo-negativo strong { color: #dc3545; }
+.saldo-cabecalho.saldo-positivo { color: #198754 !important; }
+.saldo-cabecalho.saldo-negativo { color: #dc3545 !important; }
+
+html[data-theme="dark"] .saldo-positivo strong { color: #54d68a; }
+html[data-theme="dark"] .saldo-negativo strong { color: #ff6b78; }
+html[data-theme="dark"] .saldo-cabecalho.saldo-positivo { color: #54d68a !important; }
+html[data-theme="dark"] .saldo-cabecalho.saldo-negativo { color: #ff6b78 !important; }
+
+.semanas-mes-titulo {
+    margin: 1.5rem 0 .55rem;
+    padding: .35rem .75rem;
+    border-left: 3px solid #0d6efd;
+    color: var(--app-muted);
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+
+.semanas-mes-titulo:first-child { margin-top: 0; }
+
 html[data-theme="dark"] .btn-outline-secondary,
 html[data-theme="dark"] .btn-outline-primary {
     color: #8ab4ff;

@@ -831,7 +831,7 @@ function mostrarResultadoDoDia(horas, resultado) {
    ACCORDION DINÂMICO
 ======================= */
 let cachePontos = [];
-let tipoAgrupamento = "mes";
+let tipoAgrupamento = "semana";
 let ordemLista = "desc"; 
 
 function limparAccordion() {
@@ -840,6 +840,14 @@ function limparAccordion() {
 }
 
 function formatarNomeGrupo(grupo, tipo) {
+  if (tipo === "semana") {
+    const inicio = new Date(`${grupo}T00:00:00`);
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + 6);
+    const formatarDia = data => `${String(data.getDate()).padStart(2, "0")}/${String(data.getMonth() + 1).padStart(2, "0")}`;
+    return `Semana de ${formatarDia(inicio)} a ${formatarDia(fim)}/${fim.getFullYear()}`;
+  }
+
   if (tipo !== "mes") return grupo;
 
   const [mm, yyyy] = grupo.split("/");
@@ -849,12 +857,41 @@ function formatarNomeGrupo(grupo, tipo) {
   return `${nomeMes.charAt(0).toUpperCase()}${nomeMes.slice(1)}/${yyyy}`;
 }
 
+function formatarMesDaSemana(grupo) {
+  const data = new Date(`${grupo}T00:00:00`);
+  const nomeMes = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(data);
+  return `${nomeMes.charAt(0).toUpperCase()}${nomeMes.slice(1)}/${data.getFullYear()}`;
+}
+
 function chaveOrdenacaoGrupo(grupo, tipo) {
   if (tipo === "ano") return Number(grupo);
+  if (tipo === "semana") return Number(grupo.replaceAll("-", ""));
   if (tipo !== "mes") return 0;
 
   const [mm, yyyy] = grupo.split("/").map(Number);
   return yyyy * 100 + mm;
+}
+
+function inicioDaSemana(dia) {
+  const { dd, mm, yyyy } = parseDiaParts(dia);
+  const data = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  const diasDesdeSegunda = (data.getDay() + 6) % 7;
+  data.setDate(data.getDate() - diasDesdeSegunda);
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+function minutosDoResultado(resultado) {
+  if (!resultado) return 0;
+  const partes = resultado.match(/^([+-])(\d{2}):(\d{2})$/);
+  if (!partes) return 0;
+  const minutos = Number(partes[2]) * 60 + Number(partes[3]);
+  return partes[1] === "-" ? -minutos : minutos;
+}
+
+function formatarSaldo(minutos) {
+  const sinal = minutos < 0 ? "-" : "+";
+  const absoluto = Math.abs(minutos);
+  return `${sinal}${String(Math.floor(absoluto / 60)).padStart(2, "0")}:${String(absoluto % 60).padStart(2, "0")}`;
 }
 
 function renderizarPontos(pontos) {
@@ -881,6 +918,7 @@ function renderizarPontos(pontos) {
     let chave = "todos";
     if (tipo === "ano") chave = yyyy;
     if (tipo === "mes") chave = `${mm}/${yyyy}`;
+    if (tipo === "semana") chave = inicioDaSemana(p.dia);
 
     if (!grupos[chave]) grupos[chave] = [];
     grupos[chave].push(p);
@@ -893,8 +931,18 @@ function renderizarPontos(pontos) {
     return ordemLista === "desc" ? -comparacao : comparacao;
   });
 
+  let ultimoMesSemana = "";
+
   gruposOrdenados.forEach(grupo => {
     const registros = grupos[grupo];
+
+    if (tipo === "semana") {
+      const mesSemana = formatarMesDaSemana(grupo);
+      if (mesSemana !== ultimoMesSemana) {
+        container.innerHTML += `<div class="semanas-mes-titulo">${mesSemana}</div>`;
+        ultimoMesSemana = mesSemana;
+      }
+    }
 
     registros.sort((a, b) => {
       const da = docIdFromDia(a.dia);
@@ -913,7 +961,7 @@ function renderizarPontos(pontos) {
         <td>${r.entrada || "-"}</td>
         <td>${r.saida || "-"}</td>
         <td>${r.horas || "-"}</td>
-        <td class="${(r.resultado || "").startsWith("+") ? "text-success" : "text-danger"}">${r.resultado || "-"}</td>
+        <td class="${(r.resultado || "").startsWith("+") ? "text-success" : (r.resultado || "").startsWith("-") ? "text-danger" : "text-muted"}">${r.resultado || "-"}</td>
       </tr>
     `).join("");
 
@@ -936,6 +984,14 @@ function renderizarPontos(pontos) {
       </div>
     `;
 
+    const saldoTotal = registros.reduce((total, registro) => total + minutosDoResultado(registro.resultado), 0);
+    const resumoSaldo = (tipo === "mes" || tipo === "semana") ? `
+      <div class="saldo-grupo ${(saldoTotal >= 0) ? "saldo-positivo" : "saldo-negativo"}">
+        <span>Saldo do período</span>
+        <strong>${formatarSaldo(saldoTotal)}</strong>
+      </div>
+    ` : "";
+
     if (tipo === "todos") {
       container.innerHTML += tabela;
     } else {
@@ -946,13 +1002,15 @@ function renderizarPontos(pontos) {
                     type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#grupo-${index}">
-              ${formatarNomeGrupo(grupo, tipo)}
+                      <span>${formatarNomeGrupo(grupo, tipo)}</span>
+                      ${resumoSaldo ? `<strong class="saldo-cabecalho ${saldoTotal >= 0 ? "saldo-positivo" : "saldo-negativo"}">${formatarSaldo(saldoTotal)}</strong>` : ""}
             </button>
           </h2>
 
           <div id="grupo-${index}" class="accordion-collapse collapse ${index === 0 ? "show" : ""}">
             <div class="accordion-body">
               ${tabela}
+              ${resumoSaldo}
             </div>
           </div>
         </div>
