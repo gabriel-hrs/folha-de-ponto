@@ -666,6 +666,14 @@ function formatarNomeGrupo(grupo, tipo) {
   return `${nomeMes.charAt(0).toUpperCase()}${nomeMes.slice(1)}/${yyyy}`;
 }
 
+function chaveOrdenacaoGrupo(grupo, tipo) {
+  if (tipo === "ano") return Number(grupo);
+  if (tipo !== "mes") return 0;
+
+  const [mm, yyyy] = grupo.split("/").map(Number);
+  return yyyy * 100 + mm;
+}
+
 function renderizarPontos(pontos) {
   const container = document.getElementById("accordion-pontos");
   if (!container) return;
@@ -697,7 +705,12 @@ function renderizarPontos(pontos) {
 
   let index = 0;
 
-  Object.keys(grupos).sort((a, b) => a.localeCompare(b)).forEach(grupo => {
+  const gruposOrdenados = Object.keys(grupos).sort((a, b) => {
+    const comparacao = chaveOrdenacaoGrupo(a, tipo) - chaveOrdenacaoGrupo(b, tipo);
+    return ordemLista === "desc" ? -comparacao : comparacao;
+  });
+
+  gruposOrdenados.forEach(grupo => {
     const registros = grupos[grupo];
 
     registros.sort((a, b) => {
@@ -877,13 +890,13 @@ authReady.then(() => {
       ordemLista = "asc";
       ordenarBtn.innerHTML = `
         <i class="bi bi-sort-up"></i>
-        Mais antigo
+        Mais recente
       `;
     } else {
       ordemLista = "desc";
       ordenarBtn.innerHTML = `
         <i class="bi bi-sort-down"></i>
-        Mais recente
+        Mais antigo
       `;
     }
 
