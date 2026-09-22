@@ -205,6 +205,7 @@ const minutosExtrasPadraoPorAno = {
 };
 
 let minutosExtrasPorAno = { ...minutosExtrasPadraoPorAno };
+let notificacaoSaidaAtiva = true;
 let localTrabalho = {
   ativo: false,
   latitude: "",
@@ -222,6 +223,7 @@ async function carregarConfiguracao() {
   const snap = await getDoc(doc(db, "configuracoes", user.uid));
   if (snap.exists()) {
     const configuracao = snap.data().minutosExtrasPorAno;
+    notificacaoSaidaAtiva = snap.data().notificacaoSaidaAtiva !== false;
     const localSalvo = snap.data().localTrabalho;
     localTrabalho = {
       ativo: Boolean(localSalvo?.ativo),
@@ -238,6 +240,7 @@ async function carregarConfiguracao() {
   }
 
   minutosExtrasPorAno = { ...minutosExtrasPadraoPorAno };
+  notificacaoSaidaAtiva = true;
   localTrabalho = {
     ativo: false,
     latitude: "",
@@ -278,6 +281,7 @@ async function salvarConfiguracao() {
   const minutos = [...document.querySelectorAll(".config-minutos")];
   const novaConfiguracao = {};
   const localAtivo = document.getElementById("habilitar-local")?.checked || false;
+  const novaNotificacaoSaidaAtiva = document.getElementById("habilitar-notificacao-saida")?.checked ?? true;
   const latitude = document.getElementById("latitude-local")?.value?.trim() || "";
   const longitude = document.getElementById("longitude-local")?.value?.trim() || "";
   const raioMetros = Number(document.getElementById("raio-local")?.value || 150);
@@ -299,6 +303,10 @@ async function salvarConfiguracao() {
     mostrarAviso("Permita as notificações para receber o lembrete de entrada.", "aviso");
   }
 
+  if (novaNotificacaoSaidaAtiva && !(await ensureNotificationPermission())) {
+    mostrarAviso("A preferência foi salva, mas permita as notificações para receber o lembrete de saída.", "aviso");
+  }
+
   for (let i = 0; i < anos.length; i++) {
     const ano = Number(anos[i].value);
     const valor = Number(minutos[i].value);
@@ -317,6 +325,7 @@ async function salvarConfiguracao() {
     await setDoc(doc(db, "configuracoes", user.uid), {
       ownerUid: user.uid,
       minutosExtrasPorAno: novaConfiguracao,
+      notificacaoSaidaAtiva: novaNotificacaoSaidaAtiva,
       localTrabalho: {
         ativo: localAtivo,
         latitude,
@@ -333,9 +342,11 @@ async function salvarConfiguracao() {
   }
 
   minutosExtrasPorAno = novaConfiguracao;
+  notificacaoSaidaAtiva = novaNotificacaoSaidaAtiva;
   localTrabalho = { ativo: localAtivo, latitude, longitude, raioMetros, inicioManha, fimManha };
   renderizarConfiguracao();
   iniciarMonitorLocal();
+  if (!notificacaoSaidaAtiva) cancelarAgendamentoSaida();
   mostrarAviso("Configuração salva.", "sucesso");
 }
 
@@ -362,6 +373,11 @@ function renderizarLocalTrabalho() {
   raio.value = localTrabalho.raioMetros;
   inicio.value = localTrabalho.inicioManha;
   fim.value = localTrabalho.fimManha;
+}
+
+function renderizarPreferenciasNotificacao() {
+  const controle = document.getElementById("habilitar-notificacao-saida");
+  if (controle) controle.checked = notificacaoSaidaAtiva;
 }
 
 function usarLocalizacaoAtual() {
@@ -663,6 +679,8 @@ function addMinutes(date, minutes) {
 let exitTimerId = null;
 
 async function scheduleExitNotification(diaDDMMYYYY, entradaHHMM) {
+  if (!notificacaoSaidaAtiva) return;
+
   const entradaDate = parseDiaHoraToDate(diaDDMMYYYY, entradaHHMM);
   const saidaDate = addMinutes(entradaDate, 9 * 60 + minutosExtrasDoDia(diaDDMMYYYY));
 
@@ -685,7 +703,22 @@ async function scheduleExitNotification(diaDDMMYYYY, entradaHHMM) {
   }, delay);
 }
 
+function cancelarAgendamentoSaida() {
+  if (exitTimerId) {
+    clearTimeout(exitTimerId);
+    exitTimerId = null;
+  }
+  localStorage.removeItem("nextExitAt");
+  localStorage.removeItem("nextExitLabel");
+}
+
 async function resumeScheduledNotificationIfAny() {
+  await carregarConfiguracao();
+  if (!notificacaoSaidaAtiva) {
+    cancelarAgendamentoSaida();
+    return;
+  }
+
   const ts = Number(localStorage.getItem("nextExitAt") || 0);
   const label = localStorage.getItem("nextExitLabel");
   if (!ts) return;
@@ -1066,6 +1099,7 @@ authReady.then(() => {
     })
     .finally(() => {
       renderizarConfiguracao();
+      renderizarPreferenciasNotificacao();
       renderizarLocalTrabalho();
       iniciarMonitorLocal();
     });
