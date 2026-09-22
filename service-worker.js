@@ -13,7 +13,7 @@ const filesToCache = [
   './assets/css/main.css',
   './icon-192x192.png',
   './icon-512x512.png',
-  // './favicon.ico', // habilite só se o arquivo existir de verdade
+  './favicon.ico', // habilite só se o arquivo existir de verdade
 ];
 
 self.addEventListener('install', (event) => {
