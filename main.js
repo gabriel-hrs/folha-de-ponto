@@ -481,9 +481,17 @@ async function carregarEntradaDoDia() {
   const dia = lerDiaNormalizado();
   if (!user || !dia) return;
 
+  let etapa = "configuracoes";
+
   try {
     await carregarConfiguracao();
-    const snap = await getDoc(doc(db, "pontos", docIdFromDia(dia)));
+
+    etapa = `pontos/${docIdFromDia(dia)}`;
+
+    const snap = await getDoc(
+      doc(db, "pontos", docIdFromDia(dia))
+    );
+
     const dados = snap.exists() ? snap.data() : null;
 
     if (!dados || dados.ownerUid !== user.uid || !dados.entrada) {
@@ -495,8 +503,11 @@ async function carregarEntradaDoDia() {
     campoEntrada.value = dados.entrada;
     resumo.textContent = `Entrada salva às ${dados.entrada}. Saída prevista: ${calcularHorarioSaida(dia, dados.entrada)}.`;
   } catch (e) {
-    console.error("Erro ao carregar entrada do dia:", e);
-    resumo.textContent = "Não foi possível carregar a entrada deste dia.";
+    console.error("Erro ao carregar entrada:", {
+      etapa,
+      codigo: e.code,
+      mensagem: e.message
+    });
   }
 }
 
