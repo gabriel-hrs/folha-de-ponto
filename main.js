@@ -478,6 +478,10 @@ async function carregarEntradaDoDia() {
   if (!campoEntrada || !resumo) return;
 
   const user = auth.currentUser;
+  console.log("Usuário atual:", {
+    uid: user?.uid,
+    isAnonymous: user?.isAnonymous
+  });
   const dia = lerDiaNormalizado();
   if (!user || !dia) return;
 
