@@ -5,6 +5,10 @@ import {
 } from "./firebase-config.js";
 
 import {
+  getRedirectResult, signInWithCredential
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+
+import {
   doc, getDoc, setDoc, collection, getDocs, query, where
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
@@ -198,6 +202,243 @@ function atualizarUIConta(u) {
 }
 
 let loginEmProgresso = false;
+
+const CHAVE_MIGRACAO_CONVIDADO = "folha-de-ponto:migracao-convidado:v1";
+
+function uidDoUsuario(userOuUid) {
+  return typeof userOuUid === "string" ? userOuUid : userOuUid?.uid;
+}
+
+function referenciaPonto(userOuUid, dia) {
+  const uid = uidDoUsuario(userOuUid);
+  return doc(db, "usuarios", uid, "pontos", docIdFromDia(dia));
+}
+
+function colecaoPontos(userOuUid) {
+  const uid = uidDoUsuario(userOuUid);
+  return collection(db, "usuarios", uid, "pontos");
+}
+
+function referenciaConflito(userOuUid, conflitoId) {
+  const uid = uidDoUsuario(userOuUid);
+  return doc(db, "usuarios", uid, "conflitosPontos", conflitoId);
+}
+
+function erroDeCredencialEmUso(error) {
+  return [
+    "auth/credential-already-in-use",
+    "auth/email-already-in-use",
+    "auth/account-exists-with-different-credential"
+  ].includes(error?.code);
+}
+
+function lerBackupConvidado() {
+  try {
+    const texto = sessionStorage.getItem(CHAVE_MIGRACAO_CONVIDADO);
+    if (!texto) return null;
+
+    const backup = JSON.parse(texto);
+    if (backup?.versao !== 1 || !backup?.origemUid || !Array.isArray(backup?.pontos)) {
+      sessionStorage.removeItem(CHAVE_MIGRACAO_CONVIDADO);
+      return null;
+    }
+    return backup;
+  } catch (error) {
+    console.error("Backup temporário do convidado inválido:", error);
+    sessionStorage.removeItem(CHAVE_MIGRACAO_CONVIDADO);
+    return null;
+  }
+}
+
+async function criarBackupConvidado(user) {
+  if (!user?.isAnonymous) return null;
+
+  const [pontosSnap, configuracaoSnap] = await Promise.all([
+    getDocs(colecaoPontos(user)),
+    getDoc(doc(db, "configuracoes", user.uid))
+  ]);
+
+  const backup = {
+    versao: 1,
+    origemUid: user.uid,
+    criadoEm: new Date().toISOString(),
+    pontos: pontosSnap.docs.map(item => ({
+      id: item.id,
+      dados: item.data()
+    })),
+    configuracao: configuracaoSnap.exists() ? configuracaoSnap.data() : null
+  };
+
+  sessionStorage.setItem(CHAVE_MIGRACAO_CONVIDADO, JSON.stringify(backup));
+  return backup;
+}
+
+function registrosDePontoIguais(a = {}, b = {}) {
+  return ["dia", "entrada", "saida", "horas", "resultado"]
+    .every(campo => (a[campo] ?? null) === (b[campo] ?? null));
+}
+
+async function arquivarConflitoPonto(userDestino, backup, item, registroGoogle, resolucao) {
+  const conflitoId = `${backup.origemUid}_${item.id}`;
+  await setDoc(referenciaConflito(userDestino, conflitoId), {
+    ownerUid: userDestino.uid,
+    origemUid: backup.origemUid,
+    dia: item.dados?.dia || item.id,
+    criadoEm: new Date().toISOString(),
+    resolucao,
+    registroConvidado: item.dados,
+    registroGoogle
+  });
+}
+
+async function migrarBackupConvidadoParaUsuario(userDestino) {
+  const backup = lerBackupConvidado();
+  if (!backup || !userDestino || userDestino.isAnonymous) return { migrados: 0, conflitos: 0 };
+
+  let migrados = 0;
+  let conflitos = 0;
+
+  for (const item of backup.pontos) {
+    const dia = item.dados?.dia;
+    if (!dia) continue;
+
+    const destinoRef = referenciaPonto(userDestino, dia);
+    const destinoSnap = await getDoc(destinoRef);
+    const dadosConvidado = { ...item.dados, ownerUid: userDestino.uid, dia };
+
+    if (!destinoSnap.exists()) {
+      await setDoc(destinoRef, dadosConvidado);
+      migrados++;
+      continue;
+    }
+
+    const dadosGoogle = destinoSnap.data();
+    if (registrosDePontoIguais(dadosConvidado, dadosGoogle)) continue;
+
+    conflitos++;
+    const usarConvidado = await confirmarAcao(
+      "Conflito em um registro de ponto",
+      `A data ${dia} possui dados diferentes no convidado e na conta Google. Confirmar substitui o registro da conta Google pelo registro do convidado; cancelar mantém o da conta Google. Uma cópia dos dois será arquivada.`
+    );
+
+    await arquivarConflitoPonto(
+      userDestino,
+      backup,
+      item,
+      dadosGoogle,
+      usarConvidado ? "substituido-pelo-convidado" : "mantido-google"
+    );
+
+    if (usarConvidado) {
+      await setDoc(destinoRef, dadosConvidado);
+      migrados++;
+    }
+  }
+
+  if (backup.configuracao) {
+    const configDestinoRef = doc(db, "configuracoes", userDestino.uid);
+    const configDestinoSnap = await getDoc(configDestinoRef);
+
+    if (!configDestinoSnap.exists()) {
+      await setDoc(configDestinoRef, {
+        ...backup.configuracao,
+        ownerUid: userDestino.uid
+      });
+    } else {
+      await setDoc(referenciaConflito(userDestino, `${backup.origemUid}_configuracao`), {
+        ownerUid: userDestino.uid,
+        origemUid: backup.origemUid,
+        tipo: "configuracao",
+        criadoEm: new Date().toISOString(),
+        resolucao: "mantida-configuracao-google",
+        configuracaoConvidado: backup.configuracao,
+        configuracaoGoogle: configDestinoSnap.data()
+      });
+    }
+  }
+
+  sessionStorage.removeItem(CHAVE_MIGRACAO_CONVIDADO);
+  return { migrados, conflitos };
+}
+
+async function migrarPontosLegadosDoUsuario(user) {
+  if (!user) return 0;
+
+  const legadosQuery = query(
+    collection(db, "pontos"),
+    where("ownerUid", "==", user.uid)
+  );
+  const legadosSnap = await getDocs(legadosQuery);
+  let migrados = 0;
+
+  for (const item of legadosSnap.docs) {
+    const dados = item.data();
+    if (!dados?.dia) continue;
+
+    const destinoRef = referenciaPonto(user, dados.dia);
+    const destinoSnap = await getDoc(destinoRef);
+
+    if (!destinoSnap.exists()) {
+      await setDoc(destinoRef, { ...dados, ownerUid: user.uid });
+      migrados++;
+      continue;
+    }
+
+    if (!registrosDePontoIguais(dados, destinoSnap.data())) {
+      await setDoc(referenciaConflito(user, `legado_${item.id}`), {
+        ownerUid: user.uid,
+        origemUid: user.uid,
+        dia: dados.dia,
+        tipo: "migracao-legada",
+        criadoEm: new Date().toISOString(),
+        resolucao: "mantido-novo-caminho",
+        registroLegado: dados,
+        registroNovo: destinoSnap.data()
+      });
+    }
+  }
+
+  return migrados;
+}
+
+async function entrarNaContaExistenteComCredencial(error) {
+  const credential = GoogleAuthProvider.credentialFromError(error);
+  if (!credential) throw error;
+
+  const resultado = await signInWithCredential(auth, credential);
+  await migrarPontosLegadosDoUsuario(resultado.user);
+  const resumo = await migrarBackupConvidadoParaUsuario(resultado.user);
+
+  if (resumo.migrados || resumo.conflitos) {
+    mostrarAviso(
+      `${resumo.migrados} registro(s) do convidado migrado(s) e ${resumo.conflitos} conflito(s) revisado(s).`,
+      "sucesso",
+      7000
+    );
+  }
+
+  return resultado.user;
+}
+
+async function processarResultadoRedirectGoogle() {
+  try {
+    const resultado = await getRedirectResult(auth);
+    if (!resultado?.user) return;
+
+    const backup = lerBackupConvidado();
+    if (!backup || resultado.user.uid === backup.origemUid) {
+      sessionStorage.removeItem(CHAVE_MIGRACAO_CONVIDADO);
+    } else {
+      await migrarBackupConvidadoParaUsuario(resultado.user);
+    }
+  } catch (error) {
+    if (erroDeCredencialEmUso(error)) {
+      await entrarNaContaExistenteComCredencial(error);
+      return;
+    }
+    throw error;
+  }
+}
 
 const minutosExtrasPadraoPorAno = {
   2025: 22,
@@ -478,10 +719,6 @@ async function carregarEntradaDoDia() {
   if (!campoEntrada || !resumo) return;
 
   const user = auth.currentUser;
-  console.log("Usuário atual:", {
-    uid: user?.uid,
-    isAnonymous: user?.isAnonymous
-  });
   const dia = lerDiaNormalizado();
   if (!user || !dia) return;
 
@@ -490,11 +727,9 @@ async function carregarEntradaDoDia() {
   try {
     await carregarConfiguracao();
 
-    etapa = `pontos/${docIdFromDia(dia)}`;
+    etapa = `usuarios/${user.uid}/pontos/${docIdFromDia(dia)}`;
 
-    const snap = await getDoc(
-      doc(db, "pontos", docIdFromDia(dia))
-    );
+    const snap = await getDoc(referenciaPonto(user, dia));
 
     const dados = snap.exists() ? snap.data() : null;
 
@@ -525,7 +760,7 @@ async function carregarSaidaDoDia() {
   if (!user || !dia) return;
 
   try {
-    const snap = await getDoc(doc(db, "pontos", docIdFromDia(dia)));
+    const snap = await getDoc(referenciaPonto(user, dia));
     const dados = snap.exists() ? snap.data() : null;
 
     if (!dados || dados.ownerUid !== user.uid || !dados.saida) {
@@ -552,13 +787,20 @@ async function entrarComGoogle() {
 
     const u = auth.currentUser;
 
-    if (u && u.isAnonymous) await linkWithPopup(u, provider);
-    else await signInWithPopup(auth, provider);
+    if (u?.isAnonymous) {
+      await criarBackupConvidado(u);
+      await linkWithPopup(u, provider);
+      sessionStorage.removeItem(CHAVE_MIGRACAO_CONVIDADO);
+      mostrarAviso("Conta Google vinculada. Seus pontos continuam no mesmo usuário.", "sucesso");
+    } else {
+      await signInWithPopup(auth, provider);
+    }
   } catch (e) {
     if (e?.code === "auth/popup-blocked" || e?.code === "auth/cancelled-popup-request") {
       try {
         const provider = new GoogleAuthProvider();
         const u = auth.currentUser;
+        if (u?.isAnonymous && !lerBackupConvidado()) await criarBackupConvidado(u);
         if (u && u.isAnonymous) await linkWithRedirect(u, provider);
         else await signInWithRedirect(auth, provider);
         return;
@@ -566,20 +808,30 @@ async function entrarComGoogle() {
         console.error("Erro no fallback redirect:", e2);
         mostrarAviso("Não foi possível entrar com Google.", "erro");
       }
-    } else if (e?.code === 'auth/credential-already-in-use') {
+    } else if (erroDeCredencialEmUso(e)) {
       try {
-        await signInWithPopup(auth, new GoogleAuthProvider());
+        await entrarNaContaExistenteComCredencial(e);
       } catch (e3) {
-        console.error("Erro no signIn após credential-already-in-use:", e3);
-        mostrarAviso("Não foi possível entrar com Google.", "erro");
+        console.error("Erro ao entrar na conta Google existente e migrar:", e3);
+        mostrarAviso("Não foi possível concluir a migração. O backup temporário foi mantido nesta aba.", "erro", 7000);
       }
     } else {
       console.error("Erro no Google auth:", e);
+      sessionStorage.removeItem(CHAVE_MIGRACAO_CONVIDADO);
       mostrarAviso("Não foi possível entrar com Google.", "erro");
     }
   } finally {
     loginEmProgresso = false;
     atualizarStatusUser();
+    const userAtual = auth.currentUser;
+    if (userAtual) {
+      try {
+        await migrarPontosLegadosDoUsuario(userAtual);
+      } catch (error) {
+        console.error("Erro ao migrar pontos antigos após o login:", error);
+        mostrarAviso("A conta entrou, mas alguns registros antigos ainda não foram migrados.", "aviso", 7000);
+      }
+    }
     carregarDados().catch(e => {
       console.error("Erro ao carregar pontos:", e);
     });
@@ -636,16 +888,8 @@ function parseDiaParts(dia) {
 }
 
 async function buscarRegistroDoDia(user, dia) {
-  const registrosQuery = query(
-    collection(db, "pontos"),
-    where("ownerUid", "==", user.uid)
-  );
-  const snap = await getDocs(registrosQuery);
-  let registro = null;
-  snap.forEach(item => {
-    if (item.data().dia === dia) registro = item.data();
-  });
-  return registro;
+  const snap = await getDoc(referenciaPonto(user, dia));
+  return snap.exists() ? snap.data() : null;
 }
 
 /* =======================
@@ -771,7 +1015,7 @@ async function salvarEntrada() {
 
   await carregarConfiguracao();
 
-  const docRef = doc(db, "pontos", docIdFromDia(dia));
+  const docRef = referenciaPonto(user, dia);
   const registroAtual = await getDoc(docRef);
   const entradaAtual = registroAtual.exists() ? registroAtual.data().entrada : null;
 
@@ -808,7 +1052,7 @@ async function salvarSaida() {
 
   await carregarConfiguracao();
 
-  const docRef = doc(db, "pontos", docIdFromDia(dia));
+  const docRef = referenciaPonto(user, dia);
   const snap = await getDoc(docRef);
 
   if (!snap.exists()) {
@@ -1082,8 +1326,7 @@ async function carregarDados() {
 
   await carregarConfiguracao();
 
-  const q = query(collection(db, "pontos"), where("ownerUid", "==", user.uid));
-  const snap = await getDocs(q);
+  const snap = await getDocs(colecaoPontos(user));
 
   const registros = [];
   snap.forEach(d => registros.push(d.data()));
@@ -1101,7 +1344,26 @@ async function carregarDados() {
 /* =======================
    BOOT
 ======================= */
-authReady.then(() => {
+authReady.then(async () => {
+  try {
+    await processarResultadoRedirectGoogle();
+
+    const user = auth.currentUser;
+    if (user) {
+      const migrados = await migrarPontosLegadosDoUsuario(user);
+      if (migrados) {
+        mostrarAviso(`${migrados} registro(s) antigo(s) migrado(s) para a nova estrutura.`, "sucesso", 7000);
+      }
+
+      if (!user.isAnonymous && lerBackupConvidado()) {
+        await migrarBackupConvidadoParaUsuario(user);
+      }
+    }
+  } catch (error) {
+    console.error("Erro durante a migração inicial:", error);
+    mostrarAviso("Não foi possível concluir a migração automática. Nenhum dado antigo foi apagado.", "erro", 7000);
+  }
+
   atualizarStatusUser();
   ocultarLoader();
 
