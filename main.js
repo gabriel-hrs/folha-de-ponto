@@ -1077,20 +1077,10 @@ async function salvarSaida() {
   const novos = { ...dados, saida };
 
   if (novos.entrada) {
-    const [h1, m1] = novos.entrada.split(":").map(Number);
-    const [h2, m2] = saida.split(":").map(Number);
+    const totais = calcularTotaisDoRegistro(dia, novos);
+    novos.horas = totais.horas;
 
-    const worked = h2 * 60 + m2 - (h1 * 60 + m1);
-    const expected = 9 * 60 + minutosExtrasDoDia(dia);
-    const diff = worked - expected;
-
-    const wh = Math.max(0, Math.floor(worked / 60));
-    const wm = Math.max(0, worked % 60);
-    novos.horas = `${String(wh).padStart(2, "0")}:${String(wm).padStart(2, "0")}`;
-
-    const dh = Math.floor(Math.abs(diff) / 60);
-    const dm = Math.abs(diff) % 60;
-    novos.resultado = `${diff < 0 ? "-" : "+"}${String(dh).padStart(2, "0")}:${String(dm).padStart(2, "0")}`;
+    novos.resultado = totais.resultado;
 
     mostrarResultadoDoDia(novos.horas, novos.resultado);
   }
@@ -1103,6 +1093,50 @@ async function salvarSaida() {
   carregarDados().catch(e => {
     console.error("Erro ao carregar pontos:", e);
   });
+}
+
+function minutosDoIntervalo(inicio, fim) {
+  if (!inicio || !fim) return 0;
+  const [h1, m1] = inicio.split(":").map(Number);
+  const [h2, m2] = fim.split(":").map(Number);
+  const total = (h2 * 60 + m2) - (h1 * 60 + m1);
+  return total > 0 ? total : 0;
+}
+
+function calcularTotaisDoRegistro(dia, registro) {
+  const total = minutosDoIntervalo(registro.entrada, registro.saida) + minutosDoIntervalo(registro.atestadoEntrada, registro.atestadoSaida);
+  const diff = total - (9 * 60 + minutosExtrasDoDia(dia));
+  const absoluto = Math.abs(diff);
+  return {
+    horas: `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`,
+    resultado: `${diff < 0 ? "-" : "+"}${String(Math.floor(absoluto / 60)).padStart(2, "0")}:${String(absoluto % 60).padStart(2, "0")}`
+  };
+}
+
+async function salvarAtestado() {
+  const user = auth.currentUser;
+  if (!user) { mostrarAviso("Autenticando... tente novamente.", "aviso"); return; }
+  const dia = lerDiaNormalizado();
+  const atestadoEntrada = document.getElementById("atestado-entrada")?.value?.trim();
+  const atestadoSaida = document.getElementById("atestado-saida")?.value?.trim();
+  if (!dia || !atestadoEntrada || !atestadoSaida) {
+    mostrarAviso("Informe o dia e os dois horários do atestado.", "aviso"); return;
+  }
+  if (minutosDoIntervalo(atestadoEntrada, atestadoSaida) <= 0) {
+    mostrarAviso("A saída deve ser posterior à entrada.", "aviso"); return;
+  }
+  const docRef = referenciaPonto(user, dia);
+  const snap = await getDoc(docRef);
+  const atual = snap.exists() ? snap.data() : {};
+  if (atual.atestadoEntrada && atual.atestadoSaida) {
+    const confirmou = await confirmarAcao("Sobrescrever atestado?", `Já existe um atestado das ${atual.atestadoEntrada} às ${atual.atestadoSaida}. Deseja substituir?`);
+    if (!confirmou) return;
+  }
+  const novos = { ...atual, ownerUid: user.uid, dia, atestadoEntrada, atestadoSaida };
+  const totais = calcularTotaisDoRegistro(dia, novos);
+  await setDoc(docRef, { ...novos, ...totais }, { merge: true });
+  mostrarAviso(`Atestado salvo. Total do dia: ${totais.horas}.`, "sucesso");
+  carregarDados().catch(e => console.error("Erro ao carregar pontos:", e));
 }
 
 function mostrarResultadoDoDia(horas, resultado) {
@@ -1252,6 +1286,7 @@ function renderizarPontos(pontos) {
         <td>${r.dia}</td>
         <td>${r.entrada || "-"}</td>
         <td>${r.saida || "-"}</td>
+        <td>${r.atestadoEntrada && r.atestadoSaida ? `${r.atestadoEntrada}–${r.atestadoSaida}` : "-"}</td>
         <td>${r.horas || "-"}</td>
         <td class="${(r.resultado || "").startsWith("+") ? "text-success" : (r.resultado || "").startsWith("-") ? "text-danger" : "text-muted"}">${r.resultado || "-"}</td>
       </tr>
@@ -1265,6 +1300,7 @@ function renderizarPontos(pontos) {
               <th>Dia</th>
               <th>Entrada</th>
               <th>Saída</th>
+              <th>Atestado</th>
               <th>Horas</th>
               <th>Resultado</th>
             </tr>
@@ -1386,6 +1422,7 @@ authReady.then(async () => {
 
   document.getElementById("btn-resultado-entrada")?.addEventListener("click", salvarEntrada);
   document.getElementById("btn-resultado-saida")?.addEventListener("click", salvarSaida);
+  document.getElementById("btn-salvar-atestado")?.addEventListener("click", salvarAtestado);
   document.getElementById("dia")?.addEventListener("change", () => {
     carregarEntradaDoDia();
     carregarSaidaDoDia();

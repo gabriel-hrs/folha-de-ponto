@@ -1,5 +1,9 @@
 {
   "dependencies": {
     "firebase": "^11.10.0"
+  },
+  "allowScripts": {
+    "@firebase/util@1.12.1": true,
+    "protobufjs@7.6.6": true
   }
 }

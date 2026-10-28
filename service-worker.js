@@ -1,11 +1,12 @@
 // service-worker.js
-const CACHE = 'meuapp-cache-v18'; // <-- troque quando mudar a lista
+const CACHE = 'meuapp-cache-v19';
 
 const filesToCache = [
   './',
   './index.html',
   './ponto-de-saida.html',
   './ponto-mensal.html',
+  './atestado.html',
   './configuracao.html',
   './manifest.json',
   './main.js',
