@@ -92,6 +92,33 @@ body {
     color: var(--app-muted);
 }
 
+.app-loader-barra {
+    width: min(15rem, 72vw);
+    height: .3rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, #0d6efd 16%, transparent);
+}
+
+.app-loader-barra::after {
+    content: "";
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: #0d6efd;
+    animation: app-loader-progresso 1.25s ease-in-out infinite;
+}
+
+.dados-carregando {
+    display: grid;
+    justify-items: center;
+    gap: .75rem;
+    padding: 2rem 1rem;
+    color: var(--app-muted);
+    text-align: center;
+}
+
 .app-loader-spinner {
     width: 2.4rem;
     height: 2.4rem;
@@ -237,6 +264,11 @@ h1, h2, h3, h4, h5, h6 {
 
 @keyframes app-loader-girando {
     to { transform: rotate(360deg); }
+}
+
+@keyframes app-loader-progresso {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(250%); }
 }
 
 @keyframes menu-entrando {

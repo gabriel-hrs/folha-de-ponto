@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE = 'meuapp-cache-v19';
+const CACHE = 'meuapp-cache-v20';
 
 const filesToCache = [
   './',

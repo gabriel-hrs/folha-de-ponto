@@ -43,6 +43,11 @@ function ocultarLoader() {
   setTimeout(() => loader.remove(), 220);
 }
 
+function atualizarProgressoCarregamento(mensagem) {
+  const texto = document.querySelector("#app-loader-mensagem");
+  if (texto && mensagem) texto.textContent = mensagem;
+}
+
 function mostrarAviso(mensagem, tipo = "info", duracao = 4500) {
   let container = document.getElementById("avisos-app");
   if (!container) {
@@ -1353,6 +1358,7 @@ function renderizarPontos(pontos) {
    FIRESTORE -> CACHE -> UI
 ======================= */
 async function carregarDados() {
+  const container = document.getElementById("accordion-pontos");
   const user = auth.currentUser;
   if (!user) {
     cachePontos = [];
@@ -1360,9 +1366,25 @@ async function carregarDados() {
     return;
   }
 
-  await carregarConfiguracao();
+  if (container) {
+    container.innerHTML = `
+      <div class="dados-carregando" role="status" aria-live="polite">
+        <div class="app-loader-barra" role="progressbar" aria-label="Carregando registros"></div>
+        <span>Buscando seus registros...</span>
+      </div>
+    `;
+  }
 
-  const snap = await getDocs(colecaoPontos(user));
+  atualizarProgressoCarregamento("Buscando seus registros...");
+  let snap;
+  try {
+    snap = await getDocs(colecaoPontos(user));
+  } catch (error) {
+    if (container) {
+      container.innerHTML = `<div class="dados-carregando text-danger" role="alert">Não foi possível carregar os registros. Verifique sua conexão e recarregue a página.</div>`;
+    }
+    throw error;
+  }
 
   const registros = [];
   snap.forEach(d => registros.push(d.data()));
@@ -1381,27 +1403,30 @@ async function carregarDados() {
    BOOT
 ======================= */
 authReady.then(async () => {
+  atualizarProgressoCarregamento("Preparando sua conta...");
   try {
     await processarResultadoRedirectGoogle();
-
-    const user = auth.currentUser;
-    if (user) {
-      const migrados = await migrarPontosLegadosDoUsuario(user);
-      if (migrados) {
-        mostrarAviso(`${migrados} registro(s) antigo(s) migrado(s) para a nova estrutura.`, "sucesso", 7000);
-      }
-
-      if (!user.isAnonymous && lerBackupConvidado()) {
-        await migrarBackupConvidadoParaUsuario(user);
-      }
-    }
   } catch (error) {
-    console.error("Erro durante a migração inicial:", error);
-    mostrarAviso("Não foi possível concluir a migração automática. Nenhum dado antigo foi apagado.", "erro", 7000);
+    console.error("Erro ao processar retorno do login Google:", error);
+    mostrarAviso("Não foi possível concluir o retorno do login. Tente entrar novamente.", "erro", 7000);
   }
 
   atualizarStatusUser();
   ocultarLoader();
+
+  Promise.resolve().then(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      const migrados = await migrarPontosLegadosDoUsuario(user);
+      if (migrados) mostrarAviso(`${migrados} registro(s) antigo(s) migrado(s) para a nova estrutura.`, "sucesso", 7000);
+      if (migrados && document.getElementById("accordion-pontos")) await carregarDados();
+      if (!user.isAnonymous && lerBackupConvidado()) await migrarBackupConvidadoParaUsuario(user);
+    } catch (error) {
+      console.error("Erro durante a migração em segundo plano:", error);
+      mostrarAviso("A conta abriu, mas não foi possível concluir a migração automática. Nenhum dado antigo foi apagado.", "erro", 7000);
+    }
+  });
 
   document.getElementById("theme-toggle")?.addEventListener("click", alternarTema);
 
@@ -1464,6 +1489,7 @@ authReady.then(async () => {
 
   carregarDados().catch(e => {
     console.error("Erro ao carregar pontos:", e);
+    mostrarAviso("Não foi possível carregar os registros. Verifique sua conexão e tente recarregar.", "erro", 7000);
   });
 
   carregarEntradaDoDia();
