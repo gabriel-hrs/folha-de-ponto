@@ -48,6 +48,25 @@ function atualizarProgressoCarregamento(mensagem) {
   if (texto && mensagem) texto.textContent = mensagem;
 }
 
+function configurarMenuRodape() {
+  const menu = document.querySelector("main > .fixed-bottom");
+  if (!menu) return;
+
+  const atualizar = () => {
+    const alturaDocumento = document.documentElement.scrollHeight;
+    const fimDaPagina = window.scrollY + window.innerHeight >= alturaDocumento - 2;
+    const menuEstaFixo = menu.classList.contains("menu-fixo-no-fim");
+    const distanciaDoFim = alturaDocumento - (window.scrollY + window.innerHeight);
+
+    if (fimDaPagina && !menuEstaFixo) menu.classList.add("menu-fixo-no-fim");
+    else if (menuEstaFixo && distanciaDoFim > 40) menu.classList.remove("menu-fixo-no-fim");
+  };
+
+  window.addEventListener("scroll", atualizar, { passive: true });
+  window.addEventListener("resize", atualizar);
+  requestAnimationFrame(atualizar);
+}
+
 function mostrarAviso(mensagem, tipo = "info", duracao = 4500) {
   let container = document.getElementById("avisos-app");
   if (!container) {
@@ -1403,6 +1422,7 @@ async function carregarDados() {
    BOOT
 ======================= */
 authReady.then(async () => {
+  configurarMenuRodape();
   atualizarProgressoCarregamento("Preparando sua conta...");
   try {
     await processarResultadoRedirectGoogle();
